@@ -23,6 +23,10 @@ var assets embed.FS
 var statusIcon []byte
 
 func main() {
+	if display := os.Getenv("PI_POPCHAT_SCREEN_FIXTURE"); display != "" {
+		runScreenFixture(display)
+		return
+	}
 	notificationProbe := os.Getenv("PI_POPCHAT_CHECK_NOTIFICATIONS") == "1"
 	probeMode := os.Getenv("PI_POPCHAT_CHECK_DESKTOP") == "1" || notificationProbe
 	var probeExit atomic.Int32
@@ -87,6 +91,7 @@ func main() {
 	}
 	d.main.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) { e.Cancel(); d.hideMain() })
 	d.panel.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) { e.Cancel(); d.hidePanel() })
+	app.Event.OnApplicationEvent(events.Mac.ApplicationDidBecomeActive, func(_ *application.ApplicationEvent) { d.completePanelActivation() })
 	app.Event.RegisterApplicationEventHook(events.Mac.ApplicationShouldHandleReopen, func(e *application.ApplicationEvent) {
 		if probeMode {
 			nativeProbeReopenCount.Add(1)

@@ -13,6 +13,7 @@ static unsigned int displayID(NSScreen *screen) {
 }
 static int displayCount(void) { return (int)[[NSScreen screens] count]; }
 static unsigned int displayAt(int i) { return displayID([[NSScreen screens] objectAtIndex:i]); }
+static bool popchatApplicationActive(void) { return NSApp.isActive; }
 
 // Inspect only the frontmost app's window geometry. No titles, pixels, AX API,
 // or screen-recording permission is needed. Run before showing the panel.
@@ -22,6 +23,16 @@ static unsigned int activeWindowDisplay(int *matchedWindow) {
   NSArray<NSScreen *> *screens = [NSScreen screens];
   if ([screens count] == 0) return 0;
   pid_t pid = [[[NSWorkspace sharedWorkspace] frontmostApplication] processIdentifier];
+  // Floating panels have a nonzero CGWindow layer. When this app is active,
+  // its actual key window is authoritative, even if the main window is on
+  // another display. Do not use a stale own key window for another active app.
+  if (pid == NSProcessInfo.processInfo.processIdentifier) {
+   NSWindow *key = NSApp.keyWindow;
+   if (key.isVisible && key.screen != nil) {
+    *matchedWindow = 1;
+    return displayID(key.screen);
+   }
+  }
   CFArrayRef windowInfo = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
   unsigned int selected = 0;
   if (windowInfo) {
@@ -56,6 +67,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+// Called on the AppKit main thread alongside the visibility mutation.
+func nativeApplicationIsActive() bool { return bool(C.popchatApplicationActive()) }
 
 func activeWindowScreen() *application.Screen {
 	screen, _ := activeWindowSelection()

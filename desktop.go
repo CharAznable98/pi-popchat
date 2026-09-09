@@ -20,6 +20,8 @@ import (
 
 type Desktop struct {
 	mainWanted, panelWanted  bool
+	panelActivationPending   bool
+	panelActivationScreen    *application.Screen
 	done                     chan struct{}
 	app                      *application.App
 	main, panel              *application.WebviewWindow
@@ -189,6 +191,8 @@ func (d *Desktop) hidePanel() {
 		d.mu.Lock()
 		wasWanted := d.panelWanted
 		d.panelWanted = false
+		d.panelActivationPending = false
+		d.panelActivationScreen = nil
 		d.mu.Unlock()
 		if wasWanted || d.panel.IsVisible() {
 			d.engine.PanelHidden()
@@ -197,7 +201,9 @@ func (d *Desktop) hidePanel() {
 	})
 }
 func (d *Desktop) showPanel() {
-	screen := activeWindowScreen()
+	d.showPanelOn(activeWindowScreen())
+}
+func (d *Desktop) showPanelOn(screen *application.Screen) {
 	if err := d.engine.PanelShown(); err != nil {
 		d.setError(err.Error())
 		return
@@ -205,6 +211,8 @@ func (d *Desktop) showPanel() {
 	application.InvokeSync(func() {
 		d.mu.Lock()
 		d.panelWanted = true
+		d.panelActivationPending = !nativeApplicationIsActive()
+		d.panelActivationScreen = screen
 		d.mu.Unlock()
 		if screen != nil {
 			d.panel.SetScreen(screen)
@@ -217,7 +225,41 @@ func (d *Desktop) showPanel() {
 	go d.engine.Refresh(sid)
 }
 func (d *Desktop) showMain() {
-	application.InvokeSync(func() { d.mu.Lock(); d.mainWanted = true; d.mu.Unlock(); d.main.Show(); d.main.Focus() })
+	application.InvokeSync(func() {
+		d.mu.Lock()
+		d.mainWanted = true
+		d.panelActivationPending = false
+		d.panelActivationScreen = nil
+		d.mu.Unlock()
+		d.main.Show()
+		d.main.Focus()
+	})
+}
+
+// AppKit may restore the main window as key while activating the application.
+// Complete only an explicit panel invocation, using its original target screen.
+func (d *Desktop) completePanelActivation() {
+	application.InvokeSync(func() {
+		select {
+		case <-d.done:
+			return
+		default:
+		}
+		d.mu.Lock()
+		pending := d.panelActivationPending && d.panelWanted
+		screen := d.panelActivationScreen
+		d.panelActivationPending = false
+		d.panelActivationScreen = nil
+		d.mu.Unlock()
+		if !pending {
+			return
+		}
+		if screen != nil {
+			d.panel.SetScreen(screen)
+		}
+		d.panel.Focus()
+		d.panel.ExecJS("document.querySelector('textarea')?.focus()")
+	})
 }
 func (d *Desktop) hideMain() {
 	application.InvokeSync(func() { d.mu.Lock(); d.mainWanted = false; d.mu.Unlock(); d.main.Hide() })
@@ -252,7 +294,7 @@ func (d *Desktop) togglePanel() {
 		d.hidePanel()
 		return
 	}
-	d.showPanel()
+	d.showPanelOn(target)
 }
 func (d *Desktop) setShortcut(key string) error {
 	key = strings.TrimSpace(key)

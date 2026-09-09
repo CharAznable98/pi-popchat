@@ -1,0 +1,543 @@
+{
+  "failed": 0,
+  "results": [
+    {
+      "name": "both-webviews-ready",
+      "pass": true,
+      "detail": "requires runtime-ready and navigation-finished for main and panel"
+    },
+    {
+      "name": "startup-hide-before-navigation",
+      "pass": true,
+      "detail": "mainVisible=false panelVisible=false"
+    },
+    {
+      "name": "isolated-session",
+      "pass": true,
+      "detail": "isolated temporary data directory"
+    },
+    {
+      "name": "multiple-native-screens",
+      "pass": true,
+      "detail": "count=3"
+    },
+    {
+      "name": "active-window-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "panel-placement-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "main-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown → draft: \"m\""
+    },
+    {
+      "name": "explicit-panel-activation",
+      "pass": true,
+      "detail": "inactiveBefore=true activeAndKeyAfter=true panelFocused=true mainFocused=false"
+    },
+    {
+      "name": "panel-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown must reach React and persisted draft"
+    },
+    {
+      "name": "active-window-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "panel-placement-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "active-window-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "panel-placement-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "foreign-active-window-2",
+      "pass": true,
+      "detail": "expected=2 actual=2 main=1 foreignForeground=true matched=true frontPID=75189 fixturePID=75189"
+    },
+    {
+      "name": "foreign-window-panel-placement-2",
+      "pass": true,
+      "detail": "expected=2 actual=2 visible=true panelKey=true mainKey=false frontPID=75129 ownPID=75129"
+    },
+    {
+      "name": "foreign-active-window-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 main=1 foreignForeground=true matched=true frontPID=75203 fixturePID=75203"
+    },
+    {
+      "name": "foreign-window-panel-placement-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 visible=true panelKey=true mainKey=false frontPID=75129 ownPID=75129"
+    },
+    {
+      "name": "active-panel-screen-differs-from-main",
+      "pass": true,
+      "detail": "expected=2 actual=2 main=1"
+    },
+    {
+      "name": "same-screen-toggle-with-main-on-other-display",
+      "pass": true,
+      "detail": "key panel must hide rather than jump to main window display"
+    },
+    {
+      "name": "visible-panel-moves",
+      "pass": true
+    },
+    {
+      "name": "same-screen-toggle-hides",
+      "pass": true
+    },
+    {
+      "name": "transfer-same-session",
+      "pass": true
+    },
+    {
+      "name": "panel-close-hides",
+      "pass": true
+    },
+    {
+      "name": "main-close-hides",
+      "pass": true
+    },
+    {
+      "name": "dock-reopen-main-only",
+      "pass": true,
+      "detail": "delegate=AppDelegate supported=true hookDelta=1 mainVisible=true panelVisible=false"
+    },
+    {
+      "name": "owned-main-fullscreen",
+      "pass": true,
+      "detail": "willEnter=1 didEnter=1 willExit=0 didExit=0 fullscreen=true mainFocused=true panelVisible=false"
+    },
+    {
+      "name": "panel-in-owned-fullscreen",
+      "pass": true,
+      "detail": "visible=true focused=true frontPID=75129 ownPID=75129; not pixel occlusion"
+    },
+    {
+      "name": "leave-fullscreen",
+      "pass": true,
+      "detail": "focusRestored=true willEnter=1 didEnter=1 willExit=1 didExit=1 fullscreen=false mainFocused=true panelVisible=false"
+    }
+  ],
+  "suite": "owned-native-desktop",
+  "windowEvents": [
+    {
+      "ms": 0,
+      "window": "probe",
+      "event": "hide-intent-before-first-navigation"
+    },
+    {
+      "ms": 368,
+      "window": "panel",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 368,
+      "window": "main",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 378,
+      "window": "panel",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 378,
+      "window": "main",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 412,
+      "window": "probe",
+      "event": "begin-window-checks"
+    },
+    {
+      "ms": 425,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 516,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 539,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 550,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 586,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 587,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 608,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 616,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 1363,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 1434,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 1440,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 1448,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 2425,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2428,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 2459,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2465,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 2466,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2471,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 2473,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 2511,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 2511,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2701,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 2704,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2711,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 2712,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2988,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 4093,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 4154,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 4167,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 4173,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 4213,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 4229,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5112,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5158,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5162,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5169,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5181,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5251,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5278,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5279,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5299,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5299,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5352,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5496,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5497,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5505,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5544,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5575,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 5575,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5651,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5651,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5693,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5694,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5700,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5700,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5703,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5703,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5703,
+      "window": "panel",
+      "event": "closing"
+    },
+    {
+      "ms": 5712,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5712,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5712,
+      "window": "main",
+      "event": "closing"
+    },
+    {
+      "ms": 5719,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5721,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5911,
+      "window": "probe",
+      "event": "before-dock-reopen"
+    },
+    {
+      "ms": 5911,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5912,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5919,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 5954,
+      "window": "probe",
+      "event": "after-dock-reopen"
+    },
+    {
+      "ms": 6602,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 6634,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 6635,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 6647,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 6682,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 6693,
+      "window": "panel",
+      "event": "ordered-off"
+    }
+  ]
+}

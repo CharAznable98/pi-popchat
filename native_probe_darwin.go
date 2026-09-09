@@ -24,6 +24,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -145,7 +148,10 @@ func runDesktopProbe(d *Desktop) int {
 			d.hidePanel()
 			d.showMain()
 			probeKeyboardInput(d.main, false)
-			record("main-keyboard-input", wait(func() bool { s := d.engine.Snapshot("main").Current; return s != nil && s.Draft == "m" }), "AppKit keyDown must reach React and persisted draft")
+			record("main-keyboard-input", wait(func() bool {
+				s := d.engine.Snapshot("main").Current
+				return s != nil && strings.EqualFold(s.Draft, "m")
+			}), fmt.Sprintf("AppKit keyDown → draft: %q", d.engine.Snapshot("main").Current.Draft))
 			d.hideMain()
 			application.InvokeSync(func() { C.popchatProbeDeactivate() })
 			inactive := wait(func() bool {
@@ -161,9 +167,93 @@ func runDesktopProbe(d *Desktop) int {
 			})
 			record("explicit-panel-activation", inactive && activated, fmt.Sprintf("inactiveBefore=%v activeAndKeyAfter=%v panelFocused=%v mainFocused=%v", inactive, activated, d.panel.IsFocused(), d.main.IsFocused()))
 			probeKeyboardInput(d.panel, true)
-			record("panel-keyboard-input", wait(func() bool { s := d.engine.Snapshot("panel").Current; return s != nil && s.Draft == "p" }), "AppKit keyDown must reach React and persisted draft")
+			record("panel-keyboard-input", wait(func() bool {
+				s := d.engine.Snapshot("panel").Current
+				return s != nil && strings.EqualFold(s.Draft, "p")
+			}), "AppKit keyDown must reach React and persisted draft")
 		}
 
+	}
+	if len(screens) > 1 {
+		for _, target := range screens[1:] {
+			d.hidePanel()
+			d.main.SetScreen(screens[0])
+			d.showMain()
+			binary, _ := os.Executable()
+			fixturePath := filepath.Join(root, "screen-fixture")
+			bytes, copyErr := os.ReadFile(binary)
+			if copyErr == nil {
+				copyErr = os.WriteFile(fixturePath, bytes, 0700)
+			}
+			if copyErr != nil {
+				record("foreign-window-start-"+target.ID, false, copyErr.Error())
+				continue
+			}
+			// Outside the product .app bundle: the fixture must be a distinct
+			// macOS application, not another process with our bundle identity.
+			fixture := exec.Command(fixturePath)
+			fixture.Env = append(os.Environ(), "PI_POPCHAT_SCREEN_FIXTURE="+target.ID)
+			err := fixture.Start()
+			if err != nil {
+				record("foreign-window-start-"+target.ID, false, err.Error())
+				continue
+			}
+			foreground := wait(func() bool { return frontmostPID() == fixture.Process.Pid })
+			wait(func() bool {
+				_, matched := activeWindowSelection()
+				return frontmostPID() == fixture.Process.Pid && matched
+			})
+			// A newly launched AppKit process can still complete activation after
+			// first appearing in the window server. Require a settled foreground
+			// before simulating a user invoking the shortcut from that application.
+			stableSince := time.Now()
+			wait(func() bool {
+				s, ok := activeWindowSelection()
+				if frontmostPID() != fixture.Process.Pid || !ok || s == nil || s.ID != target.ID {
+					stableSince = time.Now()
+					return false
+				}
+				return time.Since(stableSince) >= 500*time.Millisecond
+			})
+			selected, matched := activeWindowSelection()
+			selectedID := "none"
+			if selected != nil {
+				selectedID = selected.ID
+			}
+			record("foreign-active-window-"+target.ID, foreground && matched && selectedID == target.ID, fmt.Sprintf("expected=%s actual=%s main=%s foreignForeground=%v matched=%v frontPID=%d fixturePID=%d", target.ID, selectedID, screens[0].ID, foreground, matched, frontmostPID(), fixture.Process.Pid))
+			d.togglePanel()
+			placed := wait(func() bool {
+				screen, err := d.panel.GetScreen()
+				return err == nil && screen != nil && screen.ID == target.ID && d.panel.IsVisible() && d.panel.IsFocused()
+			})
+			panelScreen, _ := d.panel.GetScreen()
+			panelScreenID := "none"
+			if panelScreen != nil {
+				panelScreenID = panelScreen.ID
+			}
+			record("foreign-window-panel-placement-"+target.ID, placed, fmt.Sprintf("expected=%s actual=%s visible=%v panelKey=%v mainKey=%v frontPID=%d ownPID=%d", target.ID, panelScreenID, d.panel.IsVisible(), d.panel.IsFocused(), d.main.IsFocused(), frontmostPID(), os.Getpid()))
+			_ = fixture.Process.Kill()
+			_ = fixture.Wait()
+			d.showMain()
+			wait(func() bool { return frontmostPID() == os.Getpid() && d.main.IsFocused() })
+		}
+	}
+	if len(screens) > 1 {
+		d.hidePanel()
+		d.main.SetScreen(screens[0])
+		d.showMain()
+		d.showPanel()
+		d.panel.SetScreen(screens[1])
+		d.panel.Focus()
+		keyPanel := wait(func() bool { return d.panel.IsFocused() })
+		selected, matched := activeWindowSelection()
+		selectedID := "none"
+		if selected != nil {
+			selectedID = selected.ID
+		}
+		record("active-panel-screen-differs-from-main", keyPanel && matched && selectedID == screens[1].ID, fmt.Sprintf("expected=%s actual=%s main=%s", screens[1].ID, selectedID, screens[0].ID))
+		d.togglePanel()
+		record("same-screen-toggle-with-main-on-other-display", wait(func() bool { return !d.panel.IsVisible() }), "key panel must hide rather than jump to main window display")
 	}
 	if len(screens) > 1 {
 		d.hidePanel()
@@ -229,7 +319,7 @@ func runDesktopProbe(d *Desktop) int {
 	record("owned-main-fullscreen", fullscreen, fullscreenDetail())
 	if fullscreen {
 		d.showPanel()
-		record("panel-in-owned-fullscreen", wait(func() bool { return d.panel.IsVisible() && d.panel.IsFocused() }), "visibility+keyboard focus, not pixel occlusion")
+		record("panel-in-owned-fullscreen", wait(func() bool { return d.panel.IsVisible() && d.panel.IsFocused() }), fmt.Sprintf("visible=%v focused=%v frontPID=%d ownPID=%d; not pixel occlusion", d.panel.IsVisible(), d.panel.IsFocused(), frontmostPID(), os.Getpid()))
 		d.hidePanel()
 		d.showMain()
 		focusRestored := wait(func() bool { return !d.panel.IsVisible() && d.main.IsFocused() })

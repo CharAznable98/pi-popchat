@@ -16,12 +16,9 @@ export function MessageView({
 }) {
   return (
     <article className={"message " + m.role}>
-      <div className="message-label">
-        {m.role === "user" ? "你" : "Popchat"}
-        {m.status === "uncertain" && (
-          <span className="warning">交付状态不确定，请确认后再重试</span>
-        )}
-      </div>
+      {m.status === "uncertain" && (
+        <div className="message-warning warning">交付状态不确定，请确认后再重试</div>
+      )}
       {m.text && (
         <Markdown
           remarkPlugins={[remarkGfm]}

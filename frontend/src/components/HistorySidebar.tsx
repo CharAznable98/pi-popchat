@@ -27,7 +27,7 @@ export function HistorySidebar({
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="brand-mark">p</span>
+        <img className="brand-mark" src="/popchat.svg" alt="" />
         <span>
           Popchat<small>随时开始，自在继续</small>
         </span>

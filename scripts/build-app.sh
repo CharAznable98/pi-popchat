@@ -12,6 +12,7 @@ app_dir="${PI_POPCHAT_BUILD_DIR:-dist}/Pi Popchat.app"
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 go build -tags production -trimpath -ldflags='-s -w' -o "$app_dir/Contents/MacOS/pi-popchat" .
 cp build/Info.plist "$app_dir/Contents/Info.plist"
+cp build/icons/AppIcon.icns "$app_dir/Contents/Resources/AppIcon.icns"
 codesign --force --deep --sign - "$app_dir"
 codesign --verify --deep --strict "$app_dir"
 echo "已生成本机签名应用：${app_dir}（未公证）"

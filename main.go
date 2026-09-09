@@ -11,7 +11,6 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-	"github.com/wailsapp/wails/v3/pkg/icons"
 	"pi-popchat/internal/agent"
 	"pi-popchat/internal/agent/pi"
 	"pi-popchat/internal/core"
@@ -19,6 +18,9 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+//go:embed build/icons/status-template.png
+var statusIcon []byte
 
 func main() {
 	notificationProbe := os.Getenv("PI_POPCHAT_CHECK_NOTIFICATIONS") == "1"
@@ -106,10 +108,9 @@ func main() {
 	windowMenu.Add("打开主窗口").OnClick(func(_ *application.Context) { d.showMain() })
 	app.Menu.Set(appMenu)
 	tray := app.SystemTray.New()
-	tray.SetTemplateIcon(icons.SystrayMacTemplate)
+	tray.SetTemplateIcon(statusIcon)
 	tray.SetTooltip("Pi Popchat")
 	menu := app.Menu.New()
-	menu.Add("打开浮窗").OnClick(func(_ *application.Context) { d.showPanel() })
 	menu.Add("打开主窗口").OnClick(func(_ *application.Context) { d.showMain() })
 	menu.AddSeparator()
 	menu.Add("退出 Pi Popchat").OnClick(func(_ *application.Context) { app.Quit() })

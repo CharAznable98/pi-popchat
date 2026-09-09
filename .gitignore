@@ -1,0 +1,11 @@
+.DS_Store
+work/
+outputs/
+node_modules/
+.build/
+DerivedData/
+dist/
+target/
+.env
+.env.*
+!.env.example

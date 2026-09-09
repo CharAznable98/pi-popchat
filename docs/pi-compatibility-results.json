@@ -1,0 +1,185 @@
+{
+  "version": "0.84.1",
+  "date": "2026-09-09",
+  "method": "Real local Pi subprocesses; isolated synthetic configuration; loopback deterministic mock model; no real provider credentials",
+  "results": [
+    {
+      "name": "RPC startup and model discovery/switch",
+      "status": "PASS",
+      "detail": "Two configured models discovered; switching succeeds."
+    },
+    {
+      "name": "Streaming, persistence and isolated session directory",
+      "status": "PASS",
+      "detail": {
+        "sessionId": "01a0845c-e3da-70bd-851b-3a5181f6a971",
+        "events": [
+          "response",
+          "agent_start",
+          "turn_start",
+          "message_start",
+          "message_end",
+          "message_update",
+          "turn_end",
+          "agent_end",
+          "agent_settled"
+        ]
+      }
+    },
+    {
+      "name": "Tool lifecycle and coarse status",
+      "status": "PASS",
+      "detail": "Start/update/end present; details can be hidden."
+    },
+    {
+      "name": "Follow-up and steering ordering",
+      "status": "PASS",
+      "detail": {
+        "users": [
+          "[{\"type\":\"text\",\"text\":\"TOOL queue test\"}]",
+          "[{\"type\":\"text\",\"text\":\"INSERT_STEER\"}]",
+          "[{\"type\":\"text\",\"text\":\"QUEUED_FOLLOW\"}]"
+        ],
+        "queueEvents": [
+          {
+            "type": "queue_update",
+            "steering": [],
+            "followUp": [
+              "QUEUED_FOLLOW"
+            ]
+          },
+          {
+            "type": "queue_update",
+            "steering": [
+              "INSERT_STEER"
+            ],
+            "followUp": [
+              "QUEUED_FOLLOW"
+            ]
+          },
+          {
+            "type": "queue_update",
+            "steering": [],
+            "followUp": [
+              "QUEUED_FOLLOW"
+            ]
+          },
+          {
+            "type": "queue_update",
+            "steering": [],
+            "followUp": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "clear_queue availability",
+      "status": "PASS",
+      "detail": "Verified unsupported on 0.84.1; do not use newest-main RPC assumptions."
+    },
+    {
+      "name": "Client-owned queued message promotion",
+      "status": "PASS",
+      "detail": [
+        "[{\"type\":\"text\",\"text\":\"TOOL client queue\"}]",
+        "[{\"type\":\"text\",\"text\":\"PROMOTE_ONLY\"}]",
+        "[{\"type\":\"text\",\"text\":\"REMAIN_QUEUED\"}]"
+      ]
+    },
+    {
+      "name": "Image payload reaches provider",
+      "status": "PASS",
+      "detail": "Image preserved across real Pi RPC/provider conversion; no vision quality tested."
+    },
+    {
+      "name": "Arbitrary files field is not attachment API",
+      "status": "PASS",
+      "detail": "Unknown files field ignored; generic file attachments require path/text handoff."
+    },
+    {
+      "name": "Local file path handoff and real read tool",
+      "status": "PASS",
+      "detail": "Real built-in read tool reads the managed file and sends contents to the model."
+    },
+    {
+      "name": "Commands discovery and prompt/skill invocation",
+      "status": "PASS",
+      "detail": [
+        {
+          "name": "probe-dialog",
+          "source": "extension"
+        },
+        {
+          "name": "probe-custom",
+          "source": "extension"
+        },
+        {
+          "name": "probe-dialogs",
+          "source": "extension"
+        },
+        {
+          "name": "llama",
+          "source": "extension"
+        },
+        {
+          "name": "probe-template",
+          "source": "prompt"
+        },
+        {
+          "name": "skill:probe",
+          "source": "skill"
+        }
+      ]
+    },
+    {
+      "name": "Blocking dialog and unsupported TUI custom",
+      "status": "PASS",
+      "detail": "confirm roundtrip works; custom() returns undefined."
+    },
+    {
+      "name": "Select/input/editor interaction roundtrips",
+      "status": "PASS",
+      "detail": "All three dialogs completed through RPC without a terminal."
+    },
+    {
+      "name": "Concurrent processes and history isolation",
+      "status": "PASS",
+      "detail": "Two real Pi processes run concurrently with distinct sessions."
+    },
+    {
+      "name": "Rename and restart continuation",
+      "status": "PASS",
+      "detail": "Session ID/name/history retained; continued after restart; abort returns idle."
+    },
+    {
+      "name": "Unconfigured Agent startup",
+      "status": "PASS",
+      "detail": {
+        "availableModels": 0,
+        "error": "No API key found for the selected model.\n\nUse /login to log into a provider via OAuth or API key. See:\n  /Users/bytedance/.nvm/versions/node/v24.15.0/lib/node_modules/@earendil-works/pi-coding-agent/docs/providers.md\n  /Users/bytedance/.nvm/versions/node/v24.15.0/lib/node_modules/@earendil-works/pi-coding-agent/docs/models.md"
+      }
+    },
+    {
+      "name": "Retry does not signal premature completion",
+      "status": "PASS",
+      "detail": [
+        "response",
+        "agent_start",
+        "turn_start",
+        "message_start",
+        "message_end",
+        "turn_end",
+        "agent_end",
+        "auto_retry_start",
+        "message_update",
+        "auto_retry_end",
+        "agent_settled"
+      ]
+    },
+    {
+      "name": "Accepted prompt can still fail",
+      "status": "PASS",
+      "detail": "prompt success means acceptance; message stopReason=error distinguishes failure from success."
+    }
+  ]
+}

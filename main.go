@@ -28,7 +28,8 @@ func main() {
 		return
 	}
 	notificationProbe := os.Getenv("PI_POPCHAT_CHECK_NOTIFICATIONS") == "1"
-	probeMode := os.Getenv("PI_POPCHAT_CHECK_DESKTOP") == "1" || notificationProbe
+	clipboardProbe := os.Getenv("PI_POPCHAT_CHECK_CLIPBOARD") == "1"
+	probeMode := os.Getenv("PI_POPCHAT_CHECK_DESKTOP") == "1" || notificationProbe || clipboardProbe
 	var probeExit atomic.Int32
 	var root string
 	frontend, err := fs.Sub(assets, "frontend/dist")
@@ -108,6 +109,7 @@ func main() {
 	d.engine.Notify = d.notify
 	appMenu := app.Menu.New()
 	appMenu.AddRole(application.AppMenu)
+	appMenu.AddRole(application.EditMenu)
 	windowMenu := appMenu.AddSubmenu("窗口")
 	windowMenu.Add("打开浮窗").OnClick(func(_ *application.Context) { d.showPanel() })
 	windowMenu.Add("打开主窗口").OnClick(func(_ *application.Context) { d.showMain() })
@@ -131,6 +133,8 @@ func main() {
 			go func() {
 				if notificationProbe {
 					probeExit.Store(int32(runNotificationProbe(d)))
+				} else if clipboardProbe {
+					probeExit.Store(int32(runClipboardProbe(d)))
 				} else {
 					probeExit.Store(int32(runDesktopProbe(d)))
 				}

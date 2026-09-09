@@ -1,0 +1,40 @@
+{
+  "failed": 0,
+  "results": [
+    {
+      "name": "webviews-ready",
+      "pass": true
+    },
+    {
+      "name": "main-command-v-text",
+      "pass": true,
+      "detail": "prepared=true focused=true selectedExpected=true draftLength=20 attachments=0"
+    },
+    {
+      "name": "main-command-v-png",
+      "pass": true,
+      "detail": "prepared=true focused=true selectedExpected=true draftLength=0 attachments=1 mime=image/png"
+    },
+    {
+      "name": "main-command-v-tiff",
+      "pass": true,
+      "detail": "prepared=true focused=true selectedExpected=true draftLength=0 attachments=1 mime=image/png"
+    },
+    {
+      "name": "panel-command-v-text",
+      "pass": true,
+      "detail": "prepared=true focused=true selectedExpected=true draftLength=20 attachments=0"
+    },
+    {
+      "name": "panel-command-v-png",
+      "pass": true,
+      "detail": "prepared=true focused=true selectedExpected=true draftLength=0 attachments=1 mime=image/png"
+    },
+    {
+      "name": "panel-command-v-tiff",
+      "pass": true,
+      "detail": "prepared=true focused=true selectedExpected=true draftLength=0 attachments=1 mime=image/png"
+    }
+  ],
+  "suite": "native-clipboard"
+}

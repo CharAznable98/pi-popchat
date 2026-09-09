@@ -46,16 +46,22 @@ Pi Popchat 会检测本机的 Pi；未找到时会提供安装指引，也可在
 
 当前兼容验证基线为 **Pi 0.84.1**，不代表所有更新版本都已经验证。
 
-### 2. 构建并打开应用
+### 2. 安装 Pi Popchat
 
-当前提供源码构建方式，已验证环境为 **macOS 15 / Apple Silicon**。准备 Go 1.26、Node.js 24 和 Xcode Command Line Tools，在项目根目录执行：
+在 [Releases](https://github.com/CharAznable98/pi-popchat/releases/latest) 下载 `Pi-Popchat-v0.1.0-macOS-arm64.zip`，解压后将 `Pi Popchat.app` 拖入“应用程序”文件夹，再打开应用。
+
+当前提供 **macOS 15 / Apple Silicon** 构建。安装包使用 ad-hoc 签名，尚未使用 Developer ID 签名或通过 Apple 公证，macOS 可能阻止直接打开；请确认下载来源，也可以选择从源码在本机构建。Intel Mac 和其他 macOS 版本暂未验证。
+
+如果选择源码构建，准备 Go 1.26、Node.js 24 和 Xcode Command Line Tools，然后执行：
 
 ```sh
+git clone https://github.com/CharAznable98/pi-popchat.git
+cd pi-popchat
 sh scripts/build-app.sh
 sh scripts/run-app.sh
 ```
 
-应用位于 `dist/Pi Popchat.app`，后续也可以直接双击打开。当前构建使用本机签名，尚未公证；Intel Mac 和其他 macOS 版本暂未验证。
+构建产物位于 `dist/Pi Popchat.app`，后续也可以直接双击打开。
 
 ### 3. 开始第一段对话
 

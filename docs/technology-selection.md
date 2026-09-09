@@ -60,3 +60,5 @@
 ## 实施结果
 
 正式产品使用生成的 Wails 类型绑定、事件驱动会话快照、SQLite 本地存储和独立 Pi RPC 进程。React 拆分历史、消息、设置和交互组件；Go 核心不依赖窗口框架。原生导航完成回调由应用显隐意图控制，避免 Wails 初始 Hidden 副本覆盖用户后续隐藏操作。当前交付为 macOS 15 / arm64 本机签名包，尚未公证。
+
+浮窗输入修正：正式浮窗保留 Floating NSPanel，显式唤起采用正常应用激活，不启用 NonActivating。已实测修复系统按键无法进入浮窗的问题；原生键盘、后台激活、多屏及全屏回归通过，见 reviews/panel-input-fix.md。

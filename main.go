@@ -77,7 +77,7 @@ func main() {
 		log.Fatal(err)
 	}
 	d.main = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "main", Title: "Pi Popchat", Hidden: true, Width: 1080, Height: 760, MinWidth: 720, MinHeight: 480, URL: "/?view=main"})
-	d.panel = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "panel", Title: "Pi Popchat", Width: 520, Height: 620, MinWidth: 380, MinHeight: 400, Hidden: true, AlwaysOnTop: true, HideOnEscape: false, HideOnFocusLost: false, URL: "/?view=panel", Mac: application.MacWindow{WindowClass: application.MacWindowClassPanel, PanelPreferences: application.MacPanelPreferences{NonActivating: true, FloatingPanel: true}, CollectionBehavior: application.MacWindowCollectionBehaviorCanJoinAllSpaces | application.MacWindowCollectionBehaviorFullScreenAuxiliary}})
+	d.panel = app.Window.NewWithOptions(application.WebviewWindowOptions{Name: "panel", Title: "Pi Popchat", Width: 520, Height: 620, MinWidth: 380, MinHeight: 400, Hidden: true, AlwaysOnTop: true, HideOnEscape: false, HideOnFocusLost: false, URL: "/?view=panel", Mac: application.MacWindow{WindowClass: application.MacWindowClassPanel, PanelPreferences: application.MacPanelPreferences{FloatingPanel: true}, CollectionBehavior: application.MacWindowCollectionBehaviorCanJoinAllSpaces | application.MacWindowCollectionBehaviorFullScreenAuxiliary}})
 	if probeMode && !notificationProbe {
 		registerNativeProbeEvents(d)
 	}

@@ -6,6 +6,11 @@ package main
 #cgo CFLAGS: -x objective-c
 #cgo LDFLAGS: -framework AppKit
 #import <AppKit/AppKit.h>
+static void popchatProbeDeactivate(void) {
+ NSRunningApplication *finder = [[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.apple.finder"] firstObject];
+ [finder activateWithOptions:0];
+}
+static bool popchatProbeIsActive(void) { return NSApp.isActive; }
 static const char *popchatProbeDelegateClass(void) { return NSStringFromClass([[NSApp delegate] class]).UTF8String; }
 static int popchatProbeReopenSupported(void) { return [[NSApp delegate] respondsToSelector:@selector(applicationShouldHandleReopen:hasVisibleWindows:)]; }
 static void popchatProbeDockReopen(void) {
@@ -124,7 +129,7 @@ func runDesktopProbe(d *Desktop) int {
 	record("isolated-session", err == nil, root)
 	screens := nativeScreens()
 	record("multiple-native-screens", len(screens) >= 2, fmt.Sprintf("count=%d", len(screens)))
-	for _, screen := range screens {
+	for screenIndex, screen := range screens {
 		d.hidePanel()
 		d.main.SetScreen(screen)
 		d.showMain()
@@ -136,6 +141,29 @@ func runDesktopProbe(d *Desktop) int {
 			return e == nil && s != nil && s.ID == screen.ID && d.panel.IsVisible()
 		})
 		record("panel-placement-"+screen.ID, placed, screen.ID)
+		if screenIndex == 0 {
+			d.hidePanel()
+			d.showMain()
+			probeKeyboardInput(d.main, false)
+			record("main-keyboard-input", wait(func() bool { s := d.engine.Snapshot("main").Current; return s != nil && s.Draft == "m" }), "AppKit keyDown must reach React and persisted draft")
+			d.hideMain()
+			application.InvokeSync(func() { C.popchatProbeDeactivate() })
+			inactive := wait(func() bool {
+				var active bool
+				application.InvokeSync(func() { active = bool(C.popchatProbeIsActive()) })
+				return !active
+			})
+			d.showPanel()
+			activated := wait(func() bool {
+				var active bool
+				application.InvokeSync(func() { active = bool(C.popchatProbeIsActive()) })
+				return active && d.panel.IsFocused()
+			})
+			record("explicit-panel-activation", inactive && activated, fmt.Sprintf("inactiveBefore=%v activeAndKeyAfter=%v panelFocused=%v mainFocused=%v", inactive, activated, d.panel.IsFocused(), d.main.IsFocused()))
+			probeKeyboardInput(d.panel, true)
+			record("panel-keyboard-input", wait(func() bool { s := d.engine.Snapshot("panel").Current; return s != nil && s.Draft == "p" }), "AppKit keyDown must reach React and persisted draft")
+		}
+
 	}
 	if len(screens) > 1 {
 		d.hidePanel()

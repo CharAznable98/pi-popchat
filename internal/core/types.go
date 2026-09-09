@@ -56,6 +56,8 @@ type Session struct {
 	Queue            []Message    `json:"queue"`
 	QueuePaused      bool         `json:"queuePaused"`
 	Interaction      *Interaction `json:"interaction"`
+	ModelsState      string       `json:"modelsState"`
+	ModelsError      string       `json:"modelsError"`
 	Models           []Model      `json:"models"`
 	Model            string       `json:"model"`
 	Commands         []Command    `json:"commands"`

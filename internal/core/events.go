@@ -44,6 +44,8 @@ func (e *Engine) applyMetadata(sid, kind string, res map[string]any) {
 			s.Provider = str(m["provider"])
 		}
 	case "get_available_models":
+		s.ModelsState = "ready"
+		s.ModelsError = ""
 		b, _ := json.Marshal(data["models"])
 		_ = json.Unmarshal(b, &s.Models)
 	case "get_messages":

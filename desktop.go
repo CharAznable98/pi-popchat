@@ -73,7 +73,11 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 	var err error
 	switch action {
 	case "new":
-		_, err = d.engine.NewSession(view, str("cwd"))
+		var created string
+		created, err = d.engine.NewSession(view, str("cwd"))
+		if err == nil && d.engine.Snapshot(view).Environment.Available {
+			go d.engine.Refresh(created)
+		}
 	case "select":
 		err = d.engine.Select(view, str("id"))
 		if err == nil {

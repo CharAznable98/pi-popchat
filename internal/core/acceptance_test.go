@@ -29,11 +29,13 @@ type acceptanceFactory struct {
 	gate    <-chan struct{}
 }
 type acceptanceClient struct {
-	history []any
-	cfg     agent.Config
-	events  chan map[string]any
-	calls   chan map[string]any
-	once    sync.Once
+	modelRequests atomic.Int32
+	modelError    atomic.Bool
+	history       []any
+	cfg           agent.Config
+	events        chan map[string]any
+	calls         chan map[string]any
+	once          sync.Once
 }
 
 func (f *acceptanceFactory) Start(ctx context.Context, cfg agent.Config) (agent.Client, error) {
@@ -55,6 +57,10 @@ func (c *acceptanceClient) Request(ctx context.Context, cmd map[string]any) (map
 	case "get_state":
 		data = map[string]any{"sessionFile": filepath.Join(c.cfg.SessionDir, "fixture.jsonl"), "model": map[string]any{"id": "test-model", "provider": "test"}}
 	case "get_available_models":
+		c.modelRequests.Add(1)
+		if c.modelError.Load() {
+			return nil, errors.New("model discovery unavailable")
+		}
 		data = map[string]any{"models": []any{map[string]any{"id": "test-model", "provider": "test", "name": "Test"}}}
 	case "get_messages":
 		data = map[string]any{"messages": c.history}
@@ -1196,5 +1202,98 @@ func TestAcceptanceMissingHistoryIsOnlyAllowedForNewConversation(t *testing.T) {
 	acceptanceNoCall(t, recreated)
 	if len(e.Snapshot("main").Current.Messages) != 2 {
 		t.Fatal("missing file erased visible history")
+	}
+}
+
+func TestModelsDiscoveryLifecycleAndRefresh(t *testing.T) {
+	e, f := acceptanceEngine(t)
+	sid, err := e.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := e.Snapshot("main").Current; s.ModelsState != "" {
+		t.Fatalf("unqueried state=%q", s.ModelsState)
+	}
+	if err := e.Refresh(sid); err != nil {
+		t.Fatal(err)
+	}
+	c := <-f.starts
+	if s := e.Snapshot("main").Current; s.ModelsState != "ready" || len(s.Models) != 1 {
+		t.Fatalf("discovery state=%s count=%d", s.ModelsState, len(s.Models))
+	}
+	before := c.modelRequests.Load()
+	if err := e.Refresh(sid); err != nil {
+		t.Fatal(err)
+	}
+	if c.modelRequests.Load() != before+1 {
+		t.Fatal("refresh reused process without querying available models")
+	}
+	if len(f.starts) != 0 {
+		t.Fatal("refresh restarted agent")
+	}
+}
+
+func TestAcceptanceRealPiModelDiscovery(t *testing.T) {
+	if os.Getenv("PI_POPCHAT_REAL_TEST") != "1" {
+		t.Skip("real Pi opt-in required")
+	}
+	executable, err := pi.Locate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	factory := acceptanceFactoryFunc(func(ctx context.Context, cfg agent.Config) (agent.Client, error) {
+		cfg.ExtraArgs = []string{"--offline", "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files"}
+		return (pi.Factory{}).Start(ctx, cfg)
+	})
+	e, err := New(store, factory, executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.Close()
+	sid, err := e.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err = e.Refresh(sid); err != nil {
+			t.Fatal(err)
+		}
+		s := e.Snapshot("main").Current
+		if s.ModelsState != "ready" || len(s.Models) == 0 {
+			t.Fatalf("round=%d state=%s count=%d", i, s.ModelsState, len(s.Models))
+		}
+		t.Logf("round=%d available models=%d", i+1, len(s.Models))
+	}
+}
+
+func TestModelRefreshFailureDoesNotFailConversation(t *testing.T) {
+	e, f := acceptanceEngine(t)
+	sid, err := e.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Refresh(sid); err != nil {
+		t.Fatal(err)
+	}
+	c := <-f.starts
+	c.modelError.Store(true)
+	before := e.Snapshot("main").Current.Status
+	if err = e.Refresh(sid); err == nil {
+		t.Fatal("expected discovery error")
+	}
+	s := e.Snapshot("main").Current
+	if s.Status != before || s.ModelsState != "error" {
+		t.Fatalf("conversation=%s discovery=%s", s.Status, s.ModelsState)
+	}
+	c.modelError.Store(false)
+	if err = e.Refresh(sid); err != nil {
+		t.Fatal(err)
+	}
+	if e.Snapshot("main").Current.ModelsState != "ready" {
+		t.Fatal("retry did not recover")
 	}
 }

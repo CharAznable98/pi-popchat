@@ -66,6 +66,8 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 	}
 	e.environment = Environment{PiPath: e.executable, Available: e.executable != ""}
 	for _, s := range all {
+		s.ModelsState = ""
+		s.ModelsError = ""
 		if busy(s.Status) {
 			s.Status = "interrupted"
 			s.Error = "上次执行已中断，请确认后继续。"
@@ -281,6 +283,9 @@ func (e *Engine) fail(sid string, err error) {
 	_ = e.saveLocked(s)
 }
 func (e *Engine) ensure(sid string) (agent.Client, error) {
+	return e.ensureMetadata(sid, false)
+}
+func (e *Engine) ensureMetadata(sid string, refresh bool) (agent.Client, error) {
 	e.mu.Lock()
 	s := e.sessions[sid]
 	if s == nil || e.closing {
@@ -300,6 +305,11 @@ func (e *Engine) ensure(sid string) (agent.Client, error) {
 		c := r.client
 		r.lastUsed = time.Now()
 		e.mu.Unlock()
+		if refresh {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			return c, e.loadModels(ctx, sid, c)
+		}
 		return c, nil
 	}
 	s = e.sessions[sid]
@@ -364,6 +374,10 @@ func (e *Engine) ensure(sid string) (agent.Client, error) {
 				continue
 			}
 		}
+		if cmd == "get_available_models" {
+			_ = e.loadModels(ctx, sid, c)
+			continue
+		}
 		res, er := c.Request(ctx, map[string]any{"type": cmd})
 		if er != nil {
 			continue
@@ -372,9 +386,33 @@ func (e *Engine) ensure(sid string) (agent.Client, error) {
 	}
 	return c, nil
 }
+
+// Model discovery has a lifecycle separate from conversation execution.
+func (e *Engine) loadModels(ctx context.Context, sid string, c agent.Client) error {
+	e.mu.Lock()
+	if s := e.sessions[sid]; s != nil {
+		s.ModelsState = "loading"
+		s.ModelsError = ""
+		e.changedLocked()
+	}
+	e.mu.Unlock()
+	res, err := c.Request(ctx, map[string]any{"type": "get_available_models"})
+	if err == nil {
+		e.applyMetadata(sid, "get_available_models", res)
+		return nil
+	}
+	e.mu.Lock()
+	if s := e.sessions[sid]; s != nil {
+		s.ModelsState = "error"
+		s.ModelsError = err.Error()
+		e.changedLocked()
+	}
+	e.mu.Unlock()
+	return err
+}
 func (e *Engine) Refresh(sid string) error {
-	_, err := e.ensure(sid)
-	if err != nil {
+	c, err := e.ensureMetadata(sid, true)
+	if err != nil && c == nil {
 		e.fail(sid, err)
 	}
 	return err

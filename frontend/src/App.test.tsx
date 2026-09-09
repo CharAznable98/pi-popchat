@@ -174,3 +174,39 @@ describe("桌面对话交互", () => {
     });
   });
 });
+
+it("首次模型信息尚未返回时显示加载状态，不误报配置缺失", async () => {
+  await setup();
+  expect(screen.queryByText("尚未获取到可用模型")).toBeNull();
+  expect(screen.getByText("正在获取可用模型…")).toBeTruthy();
+  const ready = state(3);
+  ready.current!.models = [{ id: "test", name: "Test", provider: "test" }];
+  mock.snapshot.mockResolvedValue(ready);
+  await act(async () => mock.listener());
+  expect(screen.queryByText("正在获取可用模型…")).toBeNull();
+  expect(screen.queryByText("尚未获取到可用模型")).toBeNull();
+});
+it("只有模型查询成功但返回空列表时才展示配置提示", async () => {
+  const empty = state();
+  empty.current!.modelsState = "ready";
+  mock.snapshot.mockResolvedValue(empty);
+  await setup();
+  expect(screen.getByText("尚未获取到可用模型")).toBeTruthy();
+  expect(screen.queryByText("正在获取可用模型…")).toBeNull();
+});
+it("模型查询失败显示可重试错误，不误报没有模型", async () => {
+  const failed = state();
+  failed.current!.modelsState = "error";
+  failed.current!.modelsError = "查询超时";
+  mock.snapshot.mockResolvedValue(failed);
+  await setup();
+  expect(screen.getByText("获取模型失败")).toBeTruthy();
+  expect(screen.getByText("查询超时")).toBeTruthy();
+  expect(screen.queryByText("尚未获取到可用模型")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "重试" }));
+  await waitFor(() =>
+    expect(mock.action).toHaveBeenCalledWith("refreshAgent", {
+      sessionId: "a",
+    }),
+  );
+});

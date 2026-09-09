@@ -37,6 +37,8 @@ export type Session = {
   messages: Message[];
   queue: Message[];
   interaction: Interaction | null;
+  modelsState?: "" | "loading" | "ready" | "error";
+  modelsError?: string;
   models: { id: string; name: string; provider: string }[];
   model: string;
   provider?: string;

@@ -556,6 +556,24 @@ export function App() {
         {snapshot?.environment.available &&
           current &&
           !current.models?.length &&
+          (!current.modelsState || current.modelsState === "loading") &&
+          current.status !== "failed" && (
+            <div className="setup" role="status">
+              正在获取可用模型…
+            </div>
+          )}
+        {snapshot?.environment.available &&
+          current?.modelsState === "error" && (
+            <div className="setup" role="alert">
+              <strong>获取模型失败</strong>
+              <p>{current.modelsError}</p>
+              <button onClick={() => run("refreshAgent")}>重试</button>
+            </div>
+          )}
+        {snapshot?.environment.available &&
+          current &&
+          current.modelsState === "ready" &&
+          !current.models?.length &&
           !busy && (
             <div className="setup">
               <strong>尚未获取到可用模型</strong>

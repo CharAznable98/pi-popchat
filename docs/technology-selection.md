@@ -1,6 +1,8 @@
 # 技术选型记录
 
-状态：待讨论，尚未选定技术栈。
+状态：已确认优先使用 Go；推荐候选为 Wails v3，尚未确认框架、前端方案或版本。
+
+2026-09-09：用户熟悉 Go，要求优先评估 Go 相关技术栈。维护者熟悉度作为长期维护成本的重要依据，SwiftUI + AppKit 不再作为首推路线。
 
 ## 已确定约束
 
@@ -12,6 +14,7 @@
 
 | 方案 | 主要评估点 |
 |---|---|
+| Wails v3 + Web 前端（当前推荐候选） | Go 管理会话、消息队列和 Pi RPC 子进程；Web 前端负责聊天界面；官方提供多窗口、系统托盘、全局快捷键及 macOS NSPanel 选项，需锁定版本后实测 |
 | SwiftUI + AppKit | NSPanel、窗口焦点和系统集成直接；富文本、代码块和交互聊天组件需要评估实现成本 |
 | Tauri + Web 前端 | 聊天界面可复用 Web 生态；特殊 macOS 浮窗行为可能需要 AppKit 桥接 |
 | Electron + Web 前端 | Web UI 与 Node 子进程接入方便；需实测常驻资源占用及 macOS 浮窗行为 |
@@ -20,4 +23,24 @@
 
 先选桌面 UI 与系统集成路线，再确定 Pi 进程生命周期及适配接口，随后确定存储和文件目录，最后确定签名与分发。每项决策记录依据、取舍和验证方式。
 
-下一项待用户决策：桌面框架路线。尚不启动产品实现。
+下一项待用户决策：是否以 Wails v3 作为首选验证路线。尚不启动产品实现；Web 前端框架随后单独决定。
+
+## Wails 初步核查
+
+核查日期：2026-09-09。以下仅完成官方文档/示例核查，尚未安装、编译或实测 Wails，不等同于此前 Pi 的真实进程验证。
+
+| 能力 | 官方材料结论 |
+|---|---|
+| 主窗口与独立浮窗 | v3 原生支持多窗口；v2 是单窗口模型，不建议为该项目绕过 v2 限制 |
+| 菜单栏常驻 | System Tray API 在 macOS 对应菜单栏图标 |
+| 全局快捷键 | 官方 global-shortcuts 示例说明支持后台触发，macOS 使用 Carbon hot keys |
+| 浮窗与焦点 | 当前文档包含 NSPanel、NonActivating、FloatingPanel、WindowLevel 和 Spaces 配置 |
+| Esc/失焦行为 | 有 HideOnEscape 和 HideOnFocusLost；需实测其与输入框、弹出菜单和中文输入法的事件优先级 |
+
+维护者文档已宣布 v3 Beta，但同时说明尚未达到稳定版。不能把当前文档字段默认视为任意历史 alpha/beta 版本均可用。选定路线后应锁定一个实际发布版本，并核查该版本源码与可执行原型；不直接依赖浮动 master。
+
+建议职责划分：Go 负责会话状态、Pi 子进程及 JSONL 适配、客户端待发送队列和桌面服务；Web 前端负责聊天、输入及历史界面。后台仍调用用户安装的 Pi，不把 Agent 循环搬进 Go。无需因 Pi 使用 Node 而在应用中增加一层 Node 中间服务。
+
+首个验证原型应覆盖：系统快捷键唤起并输入、Esc 隐藏而点击外部不隐藏、主窗口与浮窗并存、关闭窗口后菜单栏常驻，以及多显示器/全屏时的焦点行为。通知点击定位和中文输入法行为也应在产品实现前完成检查。若框架缺口需要原生桥接，再评估桥接的最小范围；不预先假定必须写 Swift 或 Objective-C。
+
+来源：[v3 多窗口](https://v3.wails.io/whats-new/)、[v2 到 v3](https://v3.wails.io/migration/v2-to-v3/)、[系统托盘](https://v3.wails.io/features/menus/systray/)、[全局快捷键示例](https://github.com/wailsapp/wails/tree/master/v3/examples/global-shortcuts)、[窗口选项](https://v3.wails.io/features/windows/options/)、[v3 Beta 公告](https://v3.wails.io/blog/wails-v3-beta/)。

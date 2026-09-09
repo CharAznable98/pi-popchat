@@ -87,4 +87,4 @@ sh scripts/run-desktop-probe.sh
 
 检查工具增加了短时间的状态收敛等待，避免将 AppKit 的异步显隐误判为失败。测试期间人工或其他工具抢占焦点会影响结果，因此检查运行期间不并发操作桌面。
 
-可复现命令：切换原型分支后执行 `sh scripts/check-desktop-placement.sh`。红/绿结果归档在 `prototypes/wails-desktop/placement-verification.txt`。少于两块实际显示器时返回未完成状态，不把缺少验证环境报告为通过。修正版程序已在本机替换并启动，等待用户对实际多应用场景的体验反馈。
+可复现命令：切换原型分支后执行 `sh scripts/check-desktop-placement.sh`。红/绿结果归档在 `prototypes/wails-desktop/placement-verification.txt`。少于两块实际显示器时返回未完成状态，不把缺少验证环境报告为通过。修正版程序已在本机替换并启动。2026-09-09，用户确认按当前活动窗口所在屏幕唤起的实际多显示器体验正常，该问题关闭。

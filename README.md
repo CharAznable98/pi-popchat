@@ -4,7 +4,7 @@
 
 产品专注于用户交互和接入成熟 Agent。一期接入 Pi，后续考虑 Codex、Claude Code。应用不实现 Agent 循环、不直接对接模型、不管理模型凭证。
 
-当前阶段：需求基线已整理；Pi 0.84.1 接口验证完成；技术选型待讨论。尚未开始产品代码实现。
+当前阶段：需求基线和 Pi 0.84.1 接口验证已完成；已选择 Go + Wails v3 + React，并完成首轮桌面原型。正式产品代码尚未开始。
 
 ## 文档
 
@@ -12,6 +12,7 @@
 - [Pi 兼容性验证](docs/pi-compatibility-report.md)：17 项接口测试与已知边界。
 - [验证结果](docs/pi-compatibility-results.json)：逐项机器可读结果。
 - [技术选型记录](docs/technology-selection.md)：决策范围与待评估问题。
+- [桌面原型验证](docs/desktop-probe-report.md)：锁定版本、实测结果和原型分支位置。
 
 ## 复现接口验证
 

@@ -222,6 +222,7 @@ func (d *Desktop) showPanelOn(screen *application.Screen) {
 			d.panel.SetScreen(screen)
 		}
 		d.panel.Show()
+		nativeActivateForPanel()
 		d.panel.Focus()
 		d.panel.ExecJS("document.querySelector('textarea')?.focus()")
 	})

@@ -1,0 +1,678 @@
+{
+  "failed": 3,
+  "results": [
+    {
+      "name": "both-webviews-ready",
+      "pass": true,
+      "detail": "requires runtime-ready and navigation-finished for main and panel"
+    },
+    {
+      "name": "startup-hide-before-navigation",
+      "pass": true,
+      "detail": "mainVisible=false panelVisible=false"
+    },
+    {
+      "name": "isolated-session",
+      "pass": true,
+      "detail": "isolated temporary data directory"
+    },
+    {
+      "name": "multiple-native-screens",
+      "pass": true,
+      "detail": "count=3"
+    },
+    {
+      "name": "active-window-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "panel-placement-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "main-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown → draft: \"M\""
+    },
+    {
+      "name": "explicit-panel-activation",
+      "pass": true,
+      "detail": "inactiveBefore=true activeAndKeyAfter=true panelFocused=true mainFocused=false"
+    },
+    {
+      "name": "panel-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown must reach React and persisted draft"
+    },
+    {
+      "name": "active-window-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "panel-placement-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "active-window-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "panel-placement-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "foreign-active-window-2",
+      "pass": false,
+      "detail": "expected=2 actual=3 main=1 foreignForeground=true matched=true frontPID=1008 fixturePID=4297"
+    },
+    {
+      "name": "foreign-window-panel-placement-2",
+      "pass": false,
+      "detail": "expected=2 actual=3 visible=true panelKey=false mainKey=false frontPID=1008 ownPID=3859"
+    },
+    {
+      "name": "foreign-active-window-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 main=1 foreignForeground=true matched=true frontPID=4704 fixturePID=4704"
+    },
+    {
+      "name": "foreign-window-panel-placement-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 visible=true panelKey=true mainKey=false frontPID=3859 ownPID=3859"
+    },
+    {
+      "name": "active-panel-screen-differs-from-main",
+      "pass": true,
+      "detail": "expected=2 actual=2 main=1"
+    },
+    {
+      "name": "same-screen-toggle-with-main-on-other-display",
+      "pass": true,
+      "detail": "key panel must hide rather than jump to main window display"
+    },
+    {
+      "name": "visible-panel-moves",
+      "pass": true
+    },
+    {
+      "name": "same-screen-toggle-hides",
+      "pass": false
+    },
+    {
+      "name": "transfer-same-session",
+      "pass": true
+    },
+    {
+      "name": "panel-close-hides",
+      "pass": true
+    },
+    {
+      "name": "main-close-hides",
+      "pass": true
+    },
+    {
+      "name": "dock-reopen-main-only",
+      "pass": true,
+      "detail": "delegate=AppDelegate supported=true hookDelta=1 mainVisible=true panelVisible=false"
+    },
+    {
+      "name": "foreign-fullscreen-start-1",
+      "pass": true,
+      "detail": "<nil>"
+    },
+    {
+      "name": "foreign-fullscreen-ready-1",
+      "pass": true,
+      "detail": "separate AppKit process completed native fullscreen transition"
+    },
+    {
+      "name": "panel-over-foreign-fullscreen-1",
+      "pass": true,
+      "detail": "target=1 selected=1 actual=1 panelFocused=true panelActiveSpace=true fullscreenStillOnScreen=true frontPID=3859 ownPID=3859 fixturePID=4854 behavior=262401 level=3 style=143 panelIndex=18 foreignIndex=24 occlusion=8194"
+    },
+    {
+      "name": "foreign-fullscreen-start-2",
+      "pass": true,
+      "detail": "<nil>"
+    },
+    {
+      "name": "foreign-fullscreen-ready-2",
+      "pass": true,
+      "detail": "separate AppKit process completed native fullscreen transition"
+    },
+    {
+      "name": "panel-over-foreign-fullscreen-2",
+      "pass": true,
+      "detail": "target=2 selected=2 actual=2 panelFocused=true panelActiveSpace=true fullscreenStillOnScreen=true frontPID=3859 ownPID=3859 fixturePID=5132 behavior=262401 level=3 style=143 panelIndex=16 foreignIndex=23 occlusion=8194"
+    },
+    {
+      "name": "foreign-fullscreen-start-3",
+      "pass": true,
+      "detail": "<nil>"
+    },
+    {
+      "name": "foreign-fullscreen-ready-3",
+      "pass": true,
+      "detail": "separate AppKit process completed native fullscreen transition"
+    },
+    {
+      "name": "panel-over-foreign-fullscreen-3",
+      "pass": true,
+      "detail": "target=3 selected=3 actual=3 panelFocused=true panelActiveSpace=true fullscreenStillOnScreen=true frontPID=3859 ownPID=3859 fixturePID=5281 behavior=262401 level=3 style=143 panelIndex=32 foreignIndex=35 occlusion=8194"
+    },
+    {
+      "name": "owned-main-fullscreen",
+      "pass": true,
+      "detail": "willEnter=1 didEnter=1 willExit=0 didExit=0 fullscreen=true mainFocused=true panelVisible=false"
+    },
+    {
+      "name": "panel-in-owned-fullscreen",
+      "pass": true,
+      "detail": "visible=true focused=true frontPID=3859 ownPID=3859; not pixel occlusion"
+    },
+    {
+      "name": "leave-fullscreen",
+      "pass": true,
+      "detail": "focusRestored=true willEnter=1 didEnter=1 willExit=1 didExit=1 fullscreen=false mainFocused=true panelVisible=false"
+    }
+  ],
+  "suite": "owned-native-desktop",
+  "windowEvents": [
+    {
+      "ms": 0,
+      "window": "probe",
+      "event": "hide-intent-before-first-navigation"
+    },
+    {
+      "ms": 430,
+      "window": "main",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 430,
+      "window": "panel",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 440,
+      "window": "main",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 440,
+      "window": "panel",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 447,
+      "window": "probe",
+      "event": "begin-window-checks"
+    },
+    {
+      "ms": 470,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 604,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 646,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 646,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 691,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 700,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 774,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 776,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2132,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2151,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2190,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 2198,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 2903,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2907,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 2922,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2954,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 2973,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 2973,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2977,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 3256,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 3257,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 3276,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 3276,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 3281,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 3282,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 3290,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 3951,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 9594,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 9642,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 9644,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 9648,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 14683,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 14703,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 15841,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 15876,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 15879,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 15883,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 15911,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 15930,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 15948,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 15952,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 15957,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 16132,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 16137,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 16415,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 16415,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 16419,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 16467,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 16472,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 16490,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 21896,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 21931,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 21988,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 21989,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 21992,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 21992,
+      "window": "panel",
+      "event": "closing"
+    },
+    {
+      "ms": 21994,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 21994,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 22037,
+      "window": "main",
+      "event": "closing"
+    },
+    {
+      "ms": 22197,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 22238,
+      "window": "probe",
+      "event": "before-dock-reopen"
+    },
+    {
+      "ms": 22238,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 22238,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 22314,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 22355,
+      "window": "probe",
+      "event": "after-dock-reopen"
+    },
+    {
+      "ms": 23908,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 23929,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 23959,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 25133,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 25136,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 25237,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 26771,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 28288,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 28329,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 28341,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 28349,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 29506,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 29506,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 31013,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 32703,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 32710,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 32763,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 32767,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 33914,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 33914,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 35811,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 35822,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 35824,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 35829,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 35871,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 35871,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 36510,
+      "window": "main",
+      "event": "show"
+    }
+  ]
+}

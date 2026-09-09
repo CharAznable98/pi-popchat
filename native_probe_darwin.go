@@ -295,6 +295,59 @@ func runDesktopProbe(d *Desktop) int {
 	})
 	record("dock-reopen-main-only", reopenPass, fmt.Sprintf("delegate=%s supported=%v hookDelta=%d mainVisible=%v panelVisible=%v", delegateClass, reopenSupported, nativeProbeReopenCount.Load()-beforeReopen, d.main.IsVisible(), d.panel.IsVisible()))
 	nativeProbeMark("after-dock-reopen")
+	// A foreign fullscreen Space is distinct from our own fullscreen window.
+	for _, target := range screens {
+		d.hidePanel()
+		d.main.SetScreen(screens[0])
+		d.showMain()
+		binary, _ := os.Executable()
+		fixturePath := filepath.Join(root, "fullscreen-fixture")
+		data, copyErr := os.ReadFile(binary)
+		if copyErr == nil {
+			copyErr = os.WriteFile(fixturePath, data, 0700)
+		}
+		readyPath := filepath.Join(root, "fullscreen-ready-"+target.ID)
+		fixture := exec.Command(fixturePath)
+		fixture.Env = append(os.Environ(), "PI_POPCHAT_SCREEN_FIXTURE="+target.ID, "PI_POPCHAT_FIXTURE_FULLSCREEN=1", "PI_POPCHAT_FIXTURE_READY="+readyPath)
+		if copyErr == nil {
+			copyErr = fixture.Start()
+		}
+		record("foreign-fullscreen-start-"+target.ID, copyErr == nil, fmt.Sprint(copyErr))
+		if copyErr == nil {
+			ready := wait(func() bool {
+				_, err := os.Stat(readyPath)
+				return err == nil && frontmostPID() == fixture.Process.Pid && fixtureOnScreen(fixture.Process.Pid)
+			})
+			record("foreign-fullscreen-ready-"+target.ID, ready, "separate AppKit process completed native fullscreen transition")
+			if ready {
+				selected := activeWindowScreen()
+				selectedID := "none"
+				if selected != nil {
+					selectedID = selected.ID
+				}
+				d.togglePanel()
+				// Let application activation and any Space transition settle before asserting.
+				time.Sleep(1200 * time.Millisecond)
+				pass := wait(func() bool {
+					screen, err := d.panel.GetScreen()
+					return err == nil && screen != nil && screen.ID == target.ID && d.panel.IsFocused() && panelOnActiveSpace(d.panel) && panelAboveFixture(d.panel, fixture.Process.Pid)
+				})
+				actual, _ := d.panel.GetScreen()
+				actualID := "none"
+				if actual != nil {
+					actualID = actual.ID
+				}
+				record("panel-over-foreign-fullscreen-"+target.ID, pass, fmt.Sprintf("target=%s selected=%s actual=%s panelFocused=%v panelActiveSpace=%v fullscreenStillOnScreen=%v frontPID=%d ownPID=%d fixturePID=%d %s", target.ID, selectedID, actualID, d.panel.IsFocused(), panelOnActiveSpace(d.panel), fixtureOnScreen(fixture.Process.Pid), frontmostPID(), os.Getpid(), fixture.Process.Pid, panelSpaceDetail(d.panel, fixture.Process.Pid)))
+			}
+			d.hidePanel()
+			_ = fixture.Process.Kill()
+			_ = fixture.Wait()
+			d.showMain()
+			wait(func() bool { return d.main.IsFocused() && panelOnActiveSpace(d.main) })
+			// Destruction of the foreign fullscreen Space has its own animation.
+			time.Sleep(1200 * time.Millisecond)
+		}
+	}
 	var willEnter, didEnter, willExit, didExit atomic.Int64
 	undoEvents := []func(){
 		d.main.OnWindowEvent(events.Mac.WindowWillEnterFullScreen, func(*application.WindowEvent) { willEnter.Add(1) }),

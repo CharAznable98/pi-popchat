@@ -64,3 +64,5 @@
 浮窗输入修正：正式浮窗保留 Floating NSPanel，显式唤起采用正常应用激活，不启用 NonActivating。已实测修复系统按键无法进入浮窗的问题；原生键盘、后台激活、多屏及全屏回归通过，见 reviews/panel-input-fix.md。
 
 多屏激活回归修正：唤起前只采集一次活动窗口屏幕，并贯穿定位及应用激活完成过程。当前活动应用为自身时使用 AppKit keyWindow（包含浮窗），其他应用仍读取前台窗口几何信息。显式唤起等待应用激活完成后恢复浮窗焦点，关闭浮窗或主动打开主窗口会取消该待完成意图。见 reviews/active-window-screen-fix.md。
+
+其他应用全屏修正：浮窗使用 NonActivating NSPanel 保留加入外部全屏 Space 的资格，并在用户显式唤起时单独激活应用和交付键盘焦点；二者不能再混为一个配置开关。保留 CanJoinAllSpaces、FullScreenAuxiliary，并增加 macOS 13+ 的 CanJoinAllApplications。上文“禁用 NonActivating”的阶段方案由此替代，详见 reviews/foreign-fullscreen-fix.md。

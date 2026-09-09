@@ -1,0 +1,593 @@
+{
+  "failed": 0,
+  "results": [
+    {
+      "name": "both-webviews-ready",
+      "pass": true,
+      "detail": "requires runtime-ready and navigation-finished for main and panel"
+    },
+    {
+      "name": "startup-hide-before-navigation",
+      "pass": true,
+      "detail": "mainVisible=false panelVisible=false"
+    },
+    {
+      "name": "isolated-session",
+      "pass": true,
+      "detail": "isolated temporary data directory"
+    },
+    {
+      "name": "multiple-native-screens",
+      "pass": true,
+      "detail": "count=3"
+    },
+    {
+      "name": "active-window-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "panel-placement-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "main-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown → draft: \"m\""
+    },
+    {
+      "name": "explicit-panel-activation",
+      "pass": true,
+      "detail": "inactiveBefore=true activeAndKeyAfter=true panelFocused=true mainFocused=false"
+    },
+    {
+      "name": "panel-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown must reach React and persisted draft"
+    },
+    {
+      "name": "active-window-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "panel-placement-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "active-window-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "panel-placement-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "foreign-active-window-2",
+      "pass": true,
+      "detail": "expected=2 actual=2 main=1 foreignForeground=true matched=true frontPID=97213 fixturePID=97213"
+    },
+    {
+      "name": "foreign-window-panel-placement-2",
+      "pass": true,
+      "detail": "expected=2 actual=2 visible=true panelKey=true mainKey=false frontPID=97127 ownPID=97127"
+    },
+    {
+      "name": "foreign-active-window-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 main=1 foreignForeground=true matched=true frontPID=97436 fixturePID=97436"
+    },
+    {
+      "name": "foreign-window-panel-placement-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 visible=true panelKey=true mainKey=false frontPID=97127 ownPID=97127"
+    },
+    {
+      "name": "active-panel-screen-differs-from-main",
+      "pass": true,
+      "detail": "expected=2 actual=2 main=1"
+    },
+    {
+      "name": "same-screen-toggle-with-main-on-other-display",
+      "pass": true,
+      "detail": "key panel must hide rather than jump to main window display"
+    },
+    {
+      "name": "visible-panel-moves",
+      "pass": true
+    },
+    {
+      "name": "same-screen-toggle-hides",
+      "pass": true
+    },
+    {
+      "name": "transfer-same-session",
+      "pass": true
+    },
+    {
+      "name": "panel-close-hides",
+      "pass": true
+    },
+    {
+      "name": "main-close-hides",
+      "pass": true
+    },
+    {
+      "name": "dock-reopen-main-only",
+      "pass": true,
+      "detail": "delegate=AppDelegate supported=true hookDelta=1 mainVisible=true panelVisible=false"
+    },
+    {
+      "name": "foreign-fullscreen-start",
+      "pass": true,
+      "detail": "<nil>"
+    },
+    {
+      "name": "foreign-fullscreen-ready",
+      "pass": true,
+      "detail": "separate AppKit process completed native fullscreen transition"
+    },
+    {
+      "name": "panel-over-foreign-fullscreen",
+      "pass": true,
+      "detail": "panelFocused=true panelActiveSpace=true fullscreenStillOnScreen=true behavior=262401 level=3 style=143 panelIndex=36 foreignIndex=38 occlusion=8194"
+    },
+    {
+      "name": "owned-main-fullscreen",
+      "pass": true,
+      "detail": "willEnter=1 didEnter=1 willExit=0 didExit=0 fullscreen=true mainFocused=true panelVisible=false"
+    },
+    {
+      "name": "panel-in-owned-fullscreen",
+      "pass": true,
+      "detail": "visible=true focused=true frontPID=97127 ownPID=97127; not pixel occlusion"
+    },
+    {
+      "name": "leave-fullscreen",
+      "pass": true,
+      "detail": "focusRestored=true willEnter=1 didEnter=1 willExit=1 didExit=1 fullscreen=false mainFocused=true panelVisible=false"
+    }
+  ],
+  "suite": "owned-native-desktop",
+  "windowEvents": [
+    {
+      "ms": 0,
+      "window": "probe",
+      "event": "hide-intent-before-first-navigation"
+    },
+    {
+      "ms": 395,
+      "window": "panel",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 395,
+      "window": "main",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 405,
+      "window": "panel",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 405,
+      "window": "main",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 416,
+      "window": "probe",
+      "event": "begin-window-checks"
+    },
+    {
+      "ms": 430,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 474,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 514,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 516,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 531,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 544,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 565,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 578,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 1342,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 1396,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 1403,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 1407,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 2390,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2392,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 2405,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2409,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2409,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 2411,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 2412,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2417,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2431,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 2436,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 2437,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2443,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 2443,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 2478,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 3773,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 3813,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 3833,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 3833,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 3909,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 3914,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 4810,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 4845,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 4856,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 4858,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 4877,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 4885,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 4887,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 4898,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 4903,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 4909,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 4910,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5048,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5120,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5135,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5135,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5152,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 5178,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5186,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5186,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5456,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5457,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5465,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5466,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5474,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5475,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5477,
+      "window": "panel",
+      "event": "closing"
+    },
+    {
+      "ms": 5477,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5489,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5491,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5492,
+      "window": "main",
+      "event": "closing"
+    },
+    {
+      "ms": 5500,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5541,
+      "window": "probe",
+      "event": "before-dock-reopen"
+    },
+    {
+      "ms": 5542,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5542,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5634,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 5921,
+      "window": "probe",
+      "event": "after-dock-reopen"
+    },
+    {
+      "ms": 7558,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 7603,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 7607,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 8779,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 8779,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 8821,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 10947,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 10966,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 11014,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 11033,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 11063,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 11064,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 11700,
+      "window": "main",
+      "event": "show"
+    }
+  ]
+}

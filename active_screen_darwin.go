@@ -13,6 +13,7 @@ static unsigned int displayID(NSScreen *screen) {
 }
 static int displayCount(void) { return (int)[[NSScreen screens] count]; }
 static unsigned int displayAt(int i) { return displayID([[NSScreen screens] objectAtIndex:i]); }
+static void popchatActivateForPanel(void) { if (!NSApp.isActive) [NSApp activateIgnoringOtherApps:YES]; }
 static bool popchatApplicationActive(void) { return NSApp.isActive; }
 
 // Inspect only the frontmost app's window geometry. No titles, pixels, AX API,
@@ -68,6 +69,11 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+// AppKit NSWindowCollectionBehaviorCanJoinAllApplications (macOS 13+).
+// Wails beta.18 does not name this flag. Unlike FullScreenAuxiliary alone,
+// it marks this floating panel as eligible for other applications' fullscreen Spaces.
+const macWindowCanJoinAllApplications application.MacWindowCollectionBehavior = 1 << 18
+
 // Called on the AppKit main thread alongside the visibility mutation.
 func nativeApplicationIsActive() bool { return bool(C.popchatApplicationActive()) }
 
@@ -96,3 +102,6 @@ func nativeScreens() []*application.Screen {
 	})
 	return screens
 }
+
+// Explicit user invocation activates keyboard delivery while retaining the panel Space semantics.
+func nativeActivateForPanel() { C.popchatActivateForPanel() }

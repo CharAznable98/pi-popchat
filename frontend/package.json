@@ -1,0 +1,28 @@
+{
+  "name": "pi-popchat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && vite build",
+    "test": "node --experimental-strip-types --test src/state.test.ts && vitest run",
+    "dev": "vite --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@wailsio/runtime": "3.0.0-beta.18",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "jsdom": "^30.0.1",
+    "prettier": "^3.9.6",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "^5.0.0"
+  }
+}

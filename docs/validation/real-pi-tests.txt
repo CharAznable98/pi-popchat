@@ -1,0 +1,76 @@
+2026-09-09 最终源码：PI_POPCHAT_REAL_TEST=1 go test -race ./internal/agent/pi ./internal/core -count=1 -v；exit 0
+=== RUN   TestConcurrentResponsesAndEvents
+--- PASS: TestConcurrentResponsesAndEvents (0.02s)
+=== RUN   TestFailureCancellationAndOneWay
+--- PASS: TestFailureCancellationAndOneWay (0.03s)
+=== RUN   TestExitUnblocksPendingAndDeliversExit
+--- PASS: TestExitUnblocksPendingAndDeliversExit (0.01s)
+=== RUN   TestTailBoundedAndVersions
+--- PASS: TestTailBoundedAndVersions (0.00s)
+=== RUN   TestCloseTerminatesOwnedToolProcessGroup
+--- PASS: TestCloseTerminatesOwnedToolProcessGroup (0.02s)
+=== RUN   TestVisibleHistoryCumulativeImagesBeyondRPCFrame
+--- PASS: TestVisibleHistoryCumulativeImagesBeyondRPCFrame (2.99s)
+=== RUN   TestVisibleHistoryBranchAndInterruptedTail
+--- PASS: TestVisibleHistoryBranchAndInterruptedTail (0.00s)
+=== RUN   TestVisibleHistoryRejectsUnsupportedAndUnmanagedFiles
+--- PASS: TestVisibleHistoryRejectsUnsupportedAndUnmanagedFiles (0.01s)
+=== RUN   TestRealPiConversationResumeAndAbort
+--- PASS: TestRealPiConversationResumeAndAbort (11.42s)
+=== RUN   TestRealPiExtensionInteractions
+--- PASS: TestRealPiExtensionInteractions (0.59s)
+PASS
+ok  	pi-popchat/internal/agent/pi	16.502s
+=== RUN   TestAcceptancePanelTimeoutAndIndependentSelection
+--- PASS: TestAcceptancePanelTimeoutAndIndependentSelection (0.02s)
+=== RUN   TestAcceptanceConcurrentSessionsQueueAndPromotion
+--- PASS: TestAcceptanceConcurrentSessionsQueueAndPromotion (0.23s)
+=== RUN   TestAcceptanceInteractionRoutingAndStop
+--- PASS: TestAcceptanceInteractionRoutingAndStop (0.12s)
+=== RUN   TestAcceptanceRetryAndFailureNotifications
+--- PASS: TestAcceptanceRetryAndFailureNotifications (0.04s)
+=== RUN   TestAcceptanceHistoryCrashRecoveryAndDraftCAS
+--- PASS: TestAcceptanceHistoryCrashRecoveryAndDraftCAS (0.11s)
+=== RUN   TestAcceptanceStopDuringAgentStartupPreventsPrompt
+--- PASS: TestAcceptanceStopDuringAgentStartupPreventsPrompt (0.10s)
+=== RUN   TestAcceptanceFailedPersistenceAllowsSameMessageRetry
+--- PASS: TestAcceptanceFailedPersistenceAllowsSameMessageRetry (0.01s)
+=== RUN   TestAcceptanceQueueDispatchRequiresDurableSave
+--- PASS: TestAcceptanceQueueDispatchRequiresDurableSave (0.10s)
+=== RUN   TestAcceptanceUnknownQueueActionDoesNotDeliver
+--- PASS: TestAcceptanceUnknownQueueActionDoesNotDeliver (0.10s)
+=== RUN   TestAcceptanceRealPiPromotionAfterActualSettlement
+--- PASS: TestAcceptanceRealPiPromotionAfterActualSettlement (7.32s)
+=== RUN   TestAcceptanceRealPiUIOnlyCommandBecomesIdle
+--- PASS: TestAcceptanceRealPiUIOnlyCommandBecomesIdle (0.72s)
+=== RUN   TestAcceptanceRealPiManagedTextAttachment
+--- PASS: TestAcceptanceRealPiManagedTextAttachment (9.18s)
+=== RUN   TestAcceptanceRealPiManagedImageAttachment
+--- PASS: TestAcceptanceRealPiManagedImageAttachment (4.58s)
+=== RUN   TestAcceptanceRealPiSelectInputEditorThroughEngine
+--- PASS: TestAcceptanceRealPiSelectInputEditorThroughEngine (0.72s)
+=== RUN   TestAcceptanceManagedAttachmentContainment
+--- PASS: TestAcceptanceManagedAttachmentContainment (0.02s)
+=== RUN   TestAcceptanceHistoryProjectionPreservesUICommandsAndMessageIdentity
+--- PASS: TestAcceptanceHistoryProjectionPreservesUICommandsAndMessageIdentity (0.02s)
+=== RUN   TestAcceptanceStaleStartupClosedAfterDeleteOrDirectoryChange
+=== RUN   TestAcceptanceStaleStartupClosedAfterDeleteOrDirectoryChange/delete
+=== RUN   TestAcceptanceStaleStartupClosedAfterDeleteOrDirectoryChange/cwd
+--- PASS: TestAcceptanceStaleStartupClosedAfterDeleteOrDirectoryChange (0.02s)
+=== RUN   TestAcceptanceRealPiChatUICommandRestartAndContinue
+--- PASS: TestAcceptanceRealPiChatUICommandRestartAndContinue (11.67s)
+=== RUN   TestAcceptanceStoppedTaskRejectsLateRetryAndDialogs
+--- PASS: TestAcceptanceStoppedTaskRejectsLateRetryAndDialogs (0.03s)
+=== RUN   TestAcceptanceMissingHistoryIsOnlyAllowedForNewConversation
+--- PASS: TestAcceptanceMissingHistoryIsOnlyAllowedForNewConversation (0.10s)
+=== RUN   TestSettlementDuringSubmissionCleanupAdvancesQueue
+=== RUN   TestSettlementDuringSubmissionCleanupAdvancesQueue/advance
+=== RUN   TestSettlementDuringSubmissionCleanupAdvancesQueue/save-failure
+=== RUN   TestSettlementDuringSubmissionCleanupAdvancesQueue/stop
+--- PASS: TestSettlementDuringSubmissionCleanupAdvancesQueue (0.44s)
+=== RUN   TestQueuedImageGrowthIsRejectedBeforeRPC
+--- PASS: TestQueuedImageGrowthIsRejectedBeforeRPC (0.18s)
+=== RUN   TestLateStartEventCannotUndoUserStop
+--- PASS: TestLateStartEventCannotUndoUserStop (0.04s)
+PASS
+ok  	pi-popchat/internal/core	37.202s

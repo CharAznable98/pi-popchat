@@ -1,0 +1,7 @@
+{
+  "nativeCallbackTargetsSession": true,
+  "noFocusSteal": true,
+  "physicalNotificationClickObserved": false,
+  "suite": "system-notification",
+  "systemDelivered": true
+}

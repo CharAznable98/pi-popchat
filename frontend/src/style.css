@@ -909,3 +909,14 @@ p {
 .commands button[aria-selected="true"] {
   background: #edf2e7;
 }
+
+.delete-session-dialog {
+  margin: auto;
+  max-width: calc(100vw - 40px);
+  color: #2c332b;
+}
+.delete-session-dialog::backdrop { background: #24321d40; backdrop-filter: blur(4px); }
+.delete-session-dialog p { line-height: 1.7; overflow-wrap: anywhere; }
+.delete-session-dialog footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; }
+.delete-session-dialog footer button { padding: 9px 16px; border: 1px solid #e1e5d9; border-radius: 8px; }
+.delete-session-dialog footer .danger { background: #a84936; border-color: #a84936; color: white; }

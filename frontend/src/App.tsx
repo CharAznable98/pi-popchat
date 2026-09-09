@@ -476,6 +476,7 @@ export function App() {
           }}
           run={run}
           navigate={navigate}
+          onDelete={(id) => act("delete", { id })}
         />
       )}
       <main className="conversation">

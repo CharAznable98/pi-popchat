@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { DeleteSessionDialog } from "./DeleteSessionDialog";
 import type { Session, UIAction } from "../types";
 import { isBusy } from "../state";
 import { labels } from "./status";
@@ -12,6 +14,7 @@ export function HistorySidebar({
   onSettings,
   run,
   navigate,
+  onDelete,
 }: {
   sessions: Session[];
   currentId?: string;
@@ -23,7 +26,9 @@ export function HistorySidebar({
   onSettings: () => void;
   run: UIAction;
   navigate: UIAction;
+  onDelete: (id: string) => Promise<unknown>;
 }) {
+  const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -91,10 +96,7 @@ export function HistorySidebar({
                   className="danger"
                   disabled={isBusy(s.status)}
                   onClick={() => {
-                    if (
-                      window.confirm("删除此会话记录？工作目录中的文件将保留。")
-                    )
-                      run("delete", { id: s.id });
+                    setDeleting({ id: s.id, title: s.title });
                     setMenu("");
                   }}
                 >
@@ -111,6 +113,11 @@ export function HistorySidebar({
       <button className="settings-button" onClick={onSettings}>
         ⚙ 设置 <span>{shortcut?.replace("Alt", "⌥")}</span>
       </button>
+      {deleting && (
+        <DeleteSessionDialog title={deleting.title}
+          onDelete={() => onDelete(deleting.id)}
+          onClose={() => setDeleting(null)} />
+      )}
     </aside>
   );
 }

@@ -1297,3 +1297,50 @@ func TestModelRefreshFailureDoesNotFailConversation(t *testing.T) {
 		t.Fatal("retry did not recover")
 	}
 }
+
+func TestPrepareReusesModelsUntilExplicitRefreshOrReconnect(t *testing.T) {
+	e, f := acceptanceEngine(t)
+	sid, err := e.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := e.Prepare(sid); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	c := <-f.starts
+	if got := c.modelRequests.Load(); got != 1 {
+		t.Fatalf("20 window opens queried models %d times, want 1", got)
+	}
+	before := e.Snapshot("main").Version
+	if err = e.Prepare(sid); err != nil {
+		t.Fatal(err)
+	}
+	if e.Snapshot("main").Version != before {
+		t.Fatal("cached preparation emitted a metadata/loading update")
+	}
+	if err = e.Refresh(sid); err != nil {
+		t.Fatal(err)
+	}
+	if got := c.modelRequests.Load(); got != 2 {
+		t.Fatalf("manual refresh queries=%d, want 2", got)
+	}
+	if len(f.starts) != 0 {
+		t.Fatal("opening or refreshing restarted Agent")
+	}
+	e.ReapIdle(-time.Second)
+	if err = e.Prepare(sid); err != nil {
+		t.Fatal(err)
+	}
+	next := <-f.starts
+	if next.modelRequests.Load() != 1 {
+		t.Fatal("new Agent connection must discover its own model catalog")
+	}
+}

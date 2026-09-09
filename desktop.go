@@ -76,12 +76,12 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 		var created string
 		created, err = d.engine.NewSession(view, str("cwd"))
 		if err == nil && d.engine.Snapshot(view).Environment.Available {
-			go d.engine.Refresh(created)
+			go d.engine.Prepare(created)
 		}
 	case "select":
 		err = d.engine.Select(view, str("id"))
 		if err == nil {
-			go d.engine.Refresh(str("id"))
+			go d.engine.Prepare(str("id"))
 		}
 	case "send":
 		var attachments []core.Attachment
@@ -227,7 +227,7 @@ func (d *Desktop) showPanelOn(screen *application.Screen) {
 		d.panel.ExecJS("document.querySelector('textarea')?.focus()")
 	})
 	sid := d.engine.CurrentID("panel")
-	go d.engine.Refresh(sid)
+	go d.engine.Prepare(sid)
 }
 func (d *Desktop) showMain() {
 	application.InvokeSync(func() {

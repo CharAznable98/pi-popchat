@@ -66,3 +66,5 @@
 多屏激活回归修正：唤起前只采集一次活动窗口屏幕，并贯穿定位及应用激活完成过程。当前活动应用为自身时使用 AppKit keyWindow（包含浮窗），其他应用仍读取前台窗口几何信息。显式唤起等待应用激活完成后恢复浮窗焦点，关闭浮窗或主动打开主窗口会取消该待完成意图。见 reviews/active-window-screen-fix.md。
 
 其他应用全屏修正：浮窗使用 NonActivating NSPanel 保留加入外部全屏 Space 的资格，并在用户显式唤起时单独激活应用和交付键盘焦点；二者不能再混为一个配置开关。保留 CanJoinAllSpaces、FullScreenAuxiliary，并增加 macOS 13+ 的 CanJoinAllApplications。上文“禁用 NonActivating”的阶段方案由此替代，详见 reviews/foreign-fullscreen-fix.md。
+
+模型目录更新策略：窗口打开使用 Prepare 复用既有连接和模型缓存，仅首次连接/重连自动发现，设置中的“重新检测”显式刷新；不随每次唤起重新查询。详见 reviews/model-cache-policy.md。

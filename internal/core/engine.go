@@ -410,6 +410,18 @@ func (e *Engine) loadModels(ctx context.Context, sid string, c agent.Client) err
 	e.mu.Unlock()
 	return err
 }
+
+// Prepare restores a session if necessary and otherwise reuses its Agent and
+// metadata. Window visibility must not force model discovery on a live client.
+func (e *Engine) Prepare(sid string) error {
+	c, err := e.ensure(sid)
+	if err != nil && c == nil {
+		e.fail(sid, err)
+	}
+	return err
+}
+
+// Refresh explicitly updates the model catalog, including on an existing client.
 func (e *Engine) Refresh(sid string) error {
 	c, err := e.ensureMetadata(sid, true)
 	if err != nil && c == nil {

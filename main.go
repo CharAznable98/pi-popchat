@@ -149,7 +149,7 @@ func main() {
 		go func() {
 			d.refreshEnvironment()
 			if d.engine.Snapshot("main").Environment.Available {
-				_ = d.engine.Refresh(d.engine.CurrentID("main"))
+				_ = d.engine.Prepare(d.engine.CurrentID("main"))
 			}
 		}()
 		go func() {

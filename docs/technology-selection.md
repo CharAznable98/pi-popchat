@@ -49,6 +49,6 @@
 
 来源：[v3 多窗口](https://v3.wails.io/whats-new/)、[v2 到 v3](https://v3.wails.io/migration/v2-to-v3/)、[系统托盘](https://v3.wails.io/features/menus/systray/)、[全局快捷键示例](https://github.com/wailsapp/wails/tree/master/v3/examples/global-shortcuts)、[窗口选项](https://v3.wails.io/features/windows/options/)、[v3 Beta 公告](https://v3.wails.io/blog/wails-v3-beta/)。
 
-## 下一项待确认：异常中断后的恢复
+## 已确认：异常中断后的恢复
 
-建议应用或 Pi 异常退出后保留已落盘历史，将受影响任务标记为中断；重启不自动重发此前正在执行或排队的消息，由用户决定继续或重试，避免重复执行有副作用的工具操作。该行为尚待用户确认，具体中断检测和队列持久化方式随后设计。
+2026-09-09，用户确认：应用或 Pi 异常退出后保留已落盘历史，将受影响任务标记为中断；重启不自动重发此前正在执行或排队的消息，由用户决定继续或重试，避免重复执行有副作用的工具操作。具体中断检测和队列持久化方式随后设计。用户选择继续不代表工具可以从中断位置恢复。

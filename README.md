@@ -1,56 +1,125 @@
+<p align="center">
+  <img src="build/icons/app.png" width="96" alt="Pi Popchat 图标" />
+</p>
+
 # Pi Popchat
 
-macOS 桌面 Agent 客户端。`⌥Space` 唤起浮窗，主窗口管理历史；Go + Wails v3 + React，一期接入用户本机的 Pi。
+**按下 ⌥Space，随时开始一段 Agent 对话。**
 
-应用只负责交互、会话和消息交接：不实现 Agent 循环、不直接调用模型、不读取或管理模型凭证。
+Pi Popchat 是一款 macOS 桌面 Agent 客户端。阅读网页、查看文件或写代码时，用快捷键唤起浮窗，提问、粘贴图片、拖入文件；需要回顾或继续之前的工作，再到主窗口找到那段会话。
 
-## 运行
+目前接入本机的 [Pi](https://github.com/earendil-works/pi/tree/main/packages/coding-agent)。完成首次配置后，日常对话可以直接在应用里进行，无需另开终端管理 Pi 进程。Pi Popchat 专注桌面交互，任务执行和模型访问交给 Agent。
 
-在 macOS 15 / Apple Silicon 上构建（本机实际验证环境为 macOS 15.6.1）：
+## 随时唤起，聊完收起
+
+<p align="center">
+  <img src="docs/images/floating-chat.jpg" width="520" alt="浮窗中的示例对话：将个人作品集想法拆成可以开始的小步骤，下方可输入消息和选择模型" />
+</p>
+
+按 **⌥Space**，浮窗会出现在当前活动窗口所在的显示器上，也支持在其他应用的全屏界面上方使用。按 **Esc** 或再次按快捷键收起，任务仍可继续执行；点击浮窗外部不会自动收起。
+
+临时的问题不必挤进同一段长对话：浮窗收起超过 **30 分钟**，且当前没有执行或等待回答的任务时，下次唤起会开启新会话。之前的内容依然保留在历史中。
+
+## 需要的时候，接着聊
+
+![主窗口：左侧搜索和管理历史会话，右侧继续对话](docs/images/main-window.jpg)
+
+主窗口集中保存应用内创建的会话。可以搜索历史、重命名、置顶或删除，也可以从浮窗直接转到主窗口继续同一段对话。
+
+*截图来自实际应用，使用预置示例内容，仅用于展示界面。*
+
+## 不止文字对话
+
+- **带上图片和文件**：用 ⌘V 粘贴图片，或将文件拖入输入区；发送前可以预览或移除附件。具体能处理什么内容，由 Agent 和所选模型决定。
+- **边执行，边补充**：执行中发送的消息默认排队，也可选择“立即插入”，由 Pi 在支持的时机接收补充指令。
+- **选择模型和命令**：模型列表和 `/` 命令来自 Pi。模型信息会缓存，重复打开窗口不会重复获取；配置变更后可在设置中重新检测。
+- **在合适的目录工作**：默认使用应用管理的工作目录，也可自行选择。回复中的本地文件可以用 macOS 默认应用打开。
+- **收起后安心等待**：关闭窗口不会退出应用，也不会停止任务。允许系统通知后，可收到任务通知并回到对应会话。
+
+## 开始使用
+
+### 1. 准备 Pi
+
+按 [Pi 官方指南](https://github.com/earendil-works/pi/tree/main/packages/coding-agent#quick-start) 安装 Pi，并完成登录或模型配置。先在终端运行 `pi`，确认能正常对话。
+
+Pi Popchat 会检测本机的 Pi；未找到时会提供安装指引，也可在设置中指定可执行文件路径。模型和登录凭证由 Pi 管理，无需在 Pi Popchat 中再配置一套。
+
+当前兼容验证基线为 **Pi 0.84.1**，不代表所有更新版本都已经验证。
+
+### 2. 构建并打开应用
+
+当前提供源码构建方式，已验证环境为 **macOS 15 / Apple Silicon**。准备 Go 1.26、Node.js 24 和 Xcode Command Line Tools，在项目根目录执行：
 
 ```sh
 sh scripts/build-app.sh
 sh scripts/run-app.sh
 ```
 
-需要 Go 1.26、Node.js 24、Xcode Command Line Tools，以及用户自行安装配置的 Pi。兼容基线是 Pi 0.84.1；应用会检测 Pi，缺失或配置错误时提供指引。Finder 启动也能发现常见 nvm/Homebrew 安装。
+应用位于 `dist/Pi Popchat.app`，后续也可以直接双击打开。当前构建使用本机签名，尚未公证；Intel Mac 和其他 macOS 版本暂未验证。
 
-构建产物为 `dist/Pi Popchat.app`，使用本机 ad-hoc 签名，不是已公证的公开发行包。没有内置模型密钥或额外服务。其他 macOS 版本和 Intel 尚未声明支持。
+### 3. 开始第一段对话
 
-## 使用
+按 **⌥Space**，输入问题并按 **Enter** 发送。要把截图一起交给 Agent，先复制图片，再在输入框按 **⌘V**。
 
-- `⌥Space`：在当前活动窗口的显示器唤起；同屏再次按下收起。点击外部不会收起，Esc 收起不会停止任务。
-- Enter 发送、Shift+Enter 换行；支持图片粘贴、文件拖入、Agent 命令菜单与模型选择。单个附件上限 32 MB，每条消息的图片总计上限 16 MB。
-- 执行中发送默认排队；“立即插入”由 Pi 在可接受时机处理。停止、失败或重启后待发送队列暂停，需主动恢复。
-- 浮窗隐藏超过 30 分钟且不在执行/等待回答时，新建浮窗会话。旧会话始终可在主窗口继续。
-- 关闭窗口后菜单栏常驻。菜单栏、原生“窗口”菜单可恢复界面；主动退出有运行任务时先确认。
+需要更换快捷键、指定 Pi 路径或刷新模型信息时，打开 **设置**。若修改了 Pi 的模型配置，点击 **重新检测** 即可更新；首次连接或重连也会自动获取模型信息。
 
-应用数据位于 `~/Library/Application Support/Pi Popchat`：SQLite 管理应用索引、草稿及队列；`sessions/` 是本应用的 Pi 会话；`workspaces/` 是默认工作目录；`attachments/` 保存附件。用户 Pi 的配置和凭证仍由 Pi 自己使用。删除历史不会递归删除用户选择的目录或任务产物。
+## 常用操作
 
-macOS 通知需在系统设置中允许 Pi Popchat。通知不抢焦点，点击定位触发通知的会话。测试可设置 `PI_POPCHAT_DATA_DIR` 使用隔离数据，正常使用不需要设置。
+| 想做什么 | 操作 |
+| --- | --- |
+| 唤起 / 收起浮窗 | ⌥Space，默认快捷键可在设置中修改 |
+| 发送 / 换行 | Enter / Shift+Enter |
+| 粘贴图片 | 在消息输入框按 ⌘V |
+| 收起但继续执行 | Esc，或关闭窗口 |
+| 找回历史 / 退出应用 | 菜单栏图标 → 打开主窗口 / 退出 Pi Popchat |
 
-## 开发与验证
+单个附件最大 **32 MB**，单条消息的图片合计最大 **16 MB**。停止、失败或重启后，尚未发送的队列会暂停，需要主动恢复；退出时若仍有任务运行，应用会先提示。
 
-```sh
-sh scripts/test.sh
-# 仅在允许调用实际模型时启用：
-PI_POPCHAT_REAL_TEST=1 go test -race ./internal/agent/pi ./internal/core -count=1 -v
-# 先退出正在运行的 Pi Popchat，检查期间不要抢占桌面焦点：
-sh scripts/check-desktop.sh
+## 数据放在哪里？
+
+会话索引、草稿、队列、附件和默认工作目录保存在本机：
+
+```text
+~/Library/Application Support/Pi Popchat/
 ```
 
-`test.sh` 包含前端作者测试、独立验收测试、Go 行为测试与 race 检查；真实模型测试默认跳过。`check-desktop.sh` 使用临时数据和假 Agent，仅操作本应用的真实原生窗口，按 JSON 结果判定成功，不以进程退出码代替验收。
+应用只管理自己创建的会话，不接管终端中的 Pi 会话。删除历史不会递归删除自行选择的工作目录或任务产物。
 
-`sh scripts/generate-bindings.sh` 从 Go 服务生成前端调用绑定。依赖固定版本和锁文件随仓库提交；修改服务接口后重新生成绑定。
+Pi Popchat 不直接调用模型，也不保存模型凭证。对话由本机 Pi 交给所选模型服务处理，因此“历史保存在本机”不等于“对话内容不会离开本机”。
 
-## 架构与证据
+## 当前支持范围
 
-| 位置 | 内容 |
-|---|---|
-| `internal/agent` | 可替换 Agent 边界及 Pi JSONL 子进程适配 |
-| `internal/core` | 会话、流式事件、队列、恢复、SQLite 与附件 |
-| `desktop.go` / 原生桥接 | macOS 窗口、快捷键、通知、文件和退出生命周期 |
-| `frontend/src` | React 状态协调与独立展示组件 |
-| `docs/reviews` | 架构、后端、前端及原生独立评审记录 |
+目前支持 **macOS + Pi**。Codex、Claude Code 等 Agent 是后续扩展方向，尚未接入；语音输入和内置文件编辑器不在当前版本中。
 
-需求见 [requirements](docs/requirements.md)，架构见 [implementation-plan](docs/implementation-plan.md)，协议实测见 [Pi compatibility](docs/pi-compatibility-report.md)。最终验收状态以 [交付与验收报告](docs/delivery-report.md) 为准，独立模拟测试不替代真实模型或操作系统验收。
+遇到问题时，可记录复现步骤、macOS 与 Pi 版本，以及问题发生在主窗口还是浮窗，方便定位。
+
+## 参与开发
+
+项目使用 **Go + Wails v3 + React**。交互层与 Agent 适配分离，优先复用成熟 Agent 的能力。
+
+```sh
+# 前端测试、Go 行为与竞态检查、前端构建
+sh scripts/test.sh
+
+# 修改 Go 服务接口后，重新生成前端绑定
+sh scripts/generate-bindings.sh
+```
+
+原生验收需先退出运行中的应用，并避免检查期间操作桌面或更改剪贴板：
+
+```sh
+sh scripts/check-desktop.sh
+sh scripts/check-native-clipboard.sh
+```
+
+真实模型测试默认跳过。如需运行，它会实际使用本机 Pi 和模型配置：
+
+```sh
+PI_POPCHAT_REAL_TEST=1 go test -race ./internal/agent/pi ./internal/core -count=1 -v
+```
+
+[产品需求](docs/requirements.md) · [架构与模块](docs/implementation-plan.md) · [Pi 兼容性验证](docs/pi-compatibility-report.md) · [修复与验收记录](docs/reviews/)
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE)。第三方依赖遵循各自的许可证。

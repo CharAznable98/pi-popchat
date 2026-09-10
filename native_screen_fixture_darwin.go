@@ -6,6 +6,29 @@ package main
 #cgo CFLAGS: -x objective-c
 #cgo LDFLAGS: -framework AppKit
 #import <AppKit/AppKit.h>
+#import <CoreGraphics/CoreGraphics.h>
+static CGPoint popchatProbeCursor(void) {
+ CGEventRef event = CGEventCreate(NULL);
+ CGPoint point = CGEventGetLocation(event);
+ CFRelease(event);
+ return point;
+}
+static void popchatProbeRestoreCursor(CGPoint point) { CGWarpMouseCursorPosition(point); }
+static bool popchatProbeMoveCursor(unsigned int display, double x, double y) {
+ for (NSScreen *screen in NSScreen.screens) {
+  if ([screen.deviceDescription[@"NSScreenNumber"] unsignedIntValue] != display) continue;
+  NSRect frame = screen.frame;
+  CGFloat top = NSMaxY(NSScreen.screens.firstObject.frame);
+  return CGWarpMouseCursorPosition(CGPointMake(NSMinX(frame) + x * (frame.size.width - 1),
+    top - (NSMinY(frame) + y * (frame.size.height - 1)))) == kCGErrorSuccess;
+ }
+ return false;
+}
+static bool popchatProbeCentered(void *pointer) {
+ NSWindow *window = (__bridge NSWindow *)pointer;
+ NSRect frame = window.frame, area = window.screen.visibleFrame;
+ return fabs(NSMidX(frame) - NSMidX(area)) <= 2 && fabs(NSMidY(frame) - NSMidY(area)) <= 2;
+}
 static void popchatScreenFixture(unsigned int display) {
  @autoreleasepool {
   NSApplication *app = [NSApplication sharedApplication];
@@ -84,6 +107,29 @@ func runScreenFixture(display string) {
 	if err == nil {
 		C.popchatScreenFixture(C.uint(id))
 	}
+}
+
+// Only used by the isolated desktop probe; restore the user's cursor on exit.
+func preserveProbeCursor() func() {
+	var point C.CGPoint
+	application.InvokeSync(func() { point = C.popchatProbeCursor() })
+	return func() { application.InvokeSync(func() { C.popchatProbeRestoreCursor(point) }) }
+}
+
+func moveProbeCursor(screen *application.Screen, x, y float64) bool {
+	id, err := strconv.ParseUint(screen.ID, 10, 32)
+	if err != nil {
+		return false
+	}
+	var ok bool
+	application.InvokeSync(func() { ok = bool(C.popchatProbeMoveCursor(C.uint(id), C.double(x), C.double(y))) })
+	return ok
+}
+
+func panelCentered(w *application.WebviewWindow) bool {
+	var ok bool
+	application.InvokeSync(func() { ok = bool(C.popchatProbeCentered(w.NativeWindow())) })
+	return ok
 }
 func frontmostPID() int {
 	var pid int

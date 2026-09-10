@@ -1,10 +1,10 @@
 #!/bin/sh
-# Run only while no other Pi Popchat instance or desktop automation is active.
+# Run serially with other desktop automation; this probe has its own instance ID.
 set -eu
 cd "$(dirname "$0")/.."
 python3 - <<'PY'
 import json, os, pathlib, subprocess, sys, tempfile
-app = pathlib.Path('dist/Pi Popchat.app/Contents/MacOS/pi-popchat').resolve()
+app = (pathlib.Path(os.environ.get('PI_POPCHAT_BUILD_DIR', 'dist')) / 'Pi Popchat.app/Contents/MacOS/pi-popchat').resolve()
 if not app.is_file():
     sys.exit('请先执行 sh scripts/build-app.sh')
 pathlib.Path('work').mkdir(exist_ok=True)

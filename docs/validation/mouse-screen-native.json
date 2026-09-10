@@ -1,0 +1,905 @@
+{
+  "failed": 0,
+  "results": [
+    {
+      "name": "both-webviews-ready",
+      "pass": true,
+      "detail": "requires runtime-ready and navigation-finished for main and panel"
+    },
+    {
+      "name": "startup-hide-before-navigation",
+      "pass": true,
+      "detail": "mainVisible=false panelVisible=false"
+    },
+    {
+      "name": "isolated-session",
+      "pass": true,
+      "detail": "isolated temporary directory"
+    },
+    {
+      "name": "multiple-native-screens",
+      "pass": true,
+      "detail": "count=3"
+    },
+    {
+      "name": "mouse-select-1-0.0-0.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-1-1.0-0.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-1-0.0-1.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-1-1.0-1.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-1-0.5-0.5",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-panel-centered-1",
+      "pass": true,
+      "detail": "foreground main window is on another screen when multiple screens are available"
+    },
+    {
+      "name": "mouse-motion-does-not-move-panel-1",
+      "pass": true,
+      "detail": "cursor motion alone must not move the panel"
+    },
+    {
+      "name": "mouse-cross-screen-toggle-1",
+      "pass": true,
+      "detail": "visible panel follows the next explicit shortcut invocation"
+    },
+    {
+      "name": "mouse-same-screen-hides-1",
+      "pass": true
+    },
+    {
+      "name": "mouse-select-2-0.0-0.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-2-1.0-0.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-2-0.0-1.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-2-1.0-1.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-2-0.5-0.5",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-panel-centered-2",
+      "pass": true,
+      "detail": "foreground main window is on another screen when multiple screens are available"
+    },
+    {
+      "name": "mouse-motion-does-not-move-panel-2",
+      "pass": true,
+      "detail": "cursor motion alone must not move the panel"
+    },
+    {
+      "name": "mouse-cross-screen-toggle-2",
+      "pass": true,
+      "detail": "visible panel follows the next explicit shortcut invocation"
+    },
+    {
+      "name": "mouse-same-screen-hides-2",
+      "pass": true
+    },
+    {
+      "name": "mouse-select-3-0.0-0.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-3-1.0-0.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-3-0.0-1.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-3-1.0-1.0",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-select-3-0.5-0.5",
+      "pass": true,
+      "detail": "full display frame, including edges; AppKit points"
+    },
+    {
+      "name": "mouse-panel-centered-3",
+      "pass": true,
+      "detail": "foreground main window is on another screen when multiple screens are available"
+    },
+    {
+      "name": "mouse-motion-does-not-move-panel-3",
+      "pass": true,
+      "detail": "cursor motion alone must not move the panel"
+    },
+    {
+      "name": "mouse-cross-screen-toggle-3",
+      "pass": true,
+      "detail": "visible panel follows the next explicit shortcut invocation"
+    },
+    {
+      "name": "mouse-same-screen-hides-3",
+      "pass": true
+    },
+    {
+      "name": "active-window-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "panel-placement-1",
+      "pass": true,
+      "detail": "1"
+    },
+    {
+      "name": "main-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown → draft: \"m\""
+    },
+    {
+      "name": "explicit-panel-activation",
+      "pass": true,
+      "detail": "inactiveBefore=true activeAndKeyAfter=true panelFocused=true mainFocused=false"
+    },
+    {
+      "name": "panel-keyboard-input",
+      "pass": true,
+      "detail": "AppKit keyDown must reach React and persisted draft"
+    },
+    {
+      "name": "active-window-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "panel-placement-2",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "active-window-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "panel-placement-3",
+      "pass": true,
+      "detail": "3"
+    },
+    {
+      "name": "foreign-active-window-2",
+      "pass": true,
+      "detail": "expected=2 actual=2 main=1 foreignForeground=true matched=true frontPID=9838 fixturePID=9838"
+    },
+    {
+      "name": "foreign-window-panel-placement-2",
+      "pass": true,
+      "detail": "expected=2 actual=2 visible=true panelKey=true mainKey=false frontPID=9766 ownPID=9766"
+    },
+    {
+      "name": "foreign-active-window-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 main=1 foreignForeground=true matched=true frontPID=9865 fixturePID=9865"
+    },
+    {
+      "name": "foreign-window-panel-placement-3",
+      "pass": true,
+      "detail": "expected=3 actual=3 visible=true panelKey=true mainKey=false frontPID=9766 ownPID=9766"
+    },
+    {
+      "name": "active-panel-screen-differs-from-main",
+      "pass": true,
+      "detail": "expected=2 actual=2 main=1"
+    },
+    {
+      "name": "same-screen-toggle-with-main-on-other-display",
+      "pass": true,
+      "detail": "key panel must hide rather than jump to main window display"
+    },
+    {
+      "name": "visible-panel-moves",
+      "pass": true
+    },
+    {
+      "name": "same-screen-toggle-hides",
+      "pass": true
+    },
+    {
+      "name": "transfer-same-session",
+      "pass": true
+    },
+    {
+      "name": "panel-close-hides",
+      "pass": true
+    },
+    {
+      "name": "main-close-hides",
+      "pass": true
+    },
+    {
+      "name": "dock-reopen-main-only",
+      "pass": true,
+      "detail": "delegate=AppDelegate supported=true hookDelta=1 mainVisible=true panelVisible=false"
+    },
+    {
+      "name": "foreign-fullscreen-start-1",
+      "pass": true,
+      "detail": "<nil>"
+    },
+    {
+      "name": "foreign-fullscreen-ready-1",
+      "pass": true,
+      "detail": "separate AppKit process completed native fullscreen transition"
+    },
+    {
+      "name": "panel-over-foreign-fullscreen-1",
+      "pass": true,
+      "detail": "target=1 selected=1 actual=1 panelFocused=true panelActiveSpace=true fullscreenStillOnScreen=true frontPID=9766 ownPID=9766 fixturePID=9906 behavior=262401 level=3 style=143 panelIndex=34 foreignIndex=36 occlusion=8194"
+    },
+    {
+      "name": "foreign-fullscreen-start-2",
+      "pass": true,
+      "detail": "<nil>"
+    },
+    {
+      "name": "foreign-fullscreen-ready-2",
+      "pass": true,
+      "detail": "separate AppKit process completed native fullscreen transition"
+    },
+    {
+      "name": "panel-over-foreign-fullscreen-2",
+      "pass": true,
+      "detail": "target=2 selected=2 actual=2 panelFocused=true panelActiveSpace=true fullscreenStillOnScreen=true frontPID=9766 ownPID=9766 fixturePID=9973 behavior=262401 level=3 style=143 panelIndex=32 foreignIndex=35 occlusion=8194"
+    },
+    {
+      "name": "foreign-fullscreen-start-3",
+      "pass": true,
+      "detail": "<nil>"
+    },
+    {
+      "name": "foreign-fullscreen-ready-3",
+      "pass": true,
+      "detail": "separate AppKit process completed native fullscreen transition"
+    },
+    {
+      "name": "panel-over-foreign-fullscreen-3",
+      "pass": true,
+      "detail": "target=3 selected=3 actual=3 panelFocused=true panelActiveSpace=true fullscreenStillOnScreen=true frontPID=9766 ownPID=9766 fixturePID=10052 behavior=262401 level=3 style=143 panelIndex=32 foreignIndex=35 occlusion=8194"
+    },
+    {
+      "name": "owned-main-fullscreen",
+      "pass": true,
+      "detail": "willEnter=1 didEnter=1 willExit=0 didExit=0 fullscreen=true mainFocused=true panelVisible=false"
+    },
+    {
+      "name": "panel-in-owned-fullscreen",
+      "pass": true,
+      "detail": "visible=true focused=true frontPID=9766 ownPID=9766; not pixel occlusion"
+    },
+    {
+      "name": "leave-fullscreen",
+      "pass": true,
+      "detail": "focusRestored=true willEnter=1 didEnter=1 willExit=1 didExit=1 fullscreen=false mainFocused=true panelVisible=false"
+    }
+  ],
+  "suite": "owned-native-desktop",
+  "windowEvents": [
+    {
+      "ms": 0,
+      "window": "probe",
+      "event": "hide-intent-before-first-navigation"
+    },
+    {
+      "ms": 294,
+      "window": "main",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 295,
+      "window": "panel",
+      "event": "navigation-finished"
+    },
+    {
+      "ms": 304,
+      "window": "panel",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 304,
+      "window": "main",
+      "event": "runtime-ready"
+    },
+    {
+      "ms": 316,
+      "window": "probe",
+      "event": "begin-window-checks"
+    },
+    {
+      "ms": 332,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 347,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 362,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 389,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 389,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 408,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 704,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 704,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 754,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 755,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 766,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 973,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 973,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 975,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 1021,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 1022,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 1033,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 1160,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 1275,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 1280,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 1323,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 1323,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 1336,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 1408,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 1413,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2209,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 2267,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 2273,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 2273,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 3133,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 3137,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 3149,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 3155,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 3155,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 3164,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 3164,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 3168,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 3196,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 3207,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 3211,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 3217,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 3217,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 3249,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 4396,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 4438,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 4441,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 4444,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 4468,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 4478,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5388,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5439,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5444,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5451,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5494,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5730,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5732,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5742,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5750,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5750,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 5755,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5794,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 5804,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 5828,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 5828,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 5852,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 6081,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 6090,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 6090,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 6262,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 6262,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 6269,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 6269,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 6272,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 6272,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 6273,
+      "window": "panel",
+      "event": "closing"
+    },
+    {
+      "ms": 6279,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 6280,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 6280,
+      "window": "main",
+      "event": "closing"
+    },
+    {
+      "ms": 6281,
+      "window": "main",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 6790,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 6802,
+      "window": "probe",
+      "event": "before-dock-reopen"
+    },
+    {
+      "ms": 6803,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 6803,
+      "window": "main",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 6821,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 6844,
+      "window": "probe",
+      "event": "after-dock-reopen"
+    },
+    {
+      "ms": 8298,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 8312,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 8332,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 9520,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 9521,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 9546,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 12487,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 12522,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 12532,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 12541,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 13710,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 13712,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 14971,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 16401,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 16431,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 16442,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 16453,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 17619,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 17620,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 19474,
+      "window": "main",
+      "event": "show"
+    },
+    {
+      "ms": 19481,
+      "window": "panel",
+      "event": "ordered-on"
+    },
+    {
+      "ms": 19492,
+      "window": "panel",
+      "event": "became-key"
+    },
+    {
+      "ms": 19497,
+      "window": "panel",
+      "event": "show"
+    },
+    {
+      "ms": 19538,
+      "window": "main",
+      "event": "became-key"
+    },
+    {
+      "ms": 19539,
+      "window": "panel",
+      "event": "ordered-off"
+    },
+    {
+      "ms": 20188,
+      "window": "main",
+      "event": "show"
+    }
+  ]
+}

@@ -16,6 +16,22 @@ static unsigned int displayAt(int i) { return displayID([[NSScreen screens] obje
 static void popchatActivateForPanel(void) { if (!NSApp.isActive) [NSApp activateIgnoringOtherApps:YES]; }
 static bool popchatApplicationActive(void) { return NSApp.isActive; }
 
+// NSEvent and NSScreen.frame share AppKit global coordinates (in points).
+// Use the full frame so the menu bar and Dock also select their display.
+static unsigned int mouseDisplay(void) {
+ @autoreleasepool {
+  NSPoint mouse = [NSEvent mouseLocation];
+  NSArray<NSScreen *> *screens = [NSScreen screens];
+  for (NSScreen *screen in screens) {
+   NSRect frame = screen.frame;
+   if (mouse.x >= NSMinX(frame) && mouse.x < NSMaxX(frame) &&
+       mouse.y >= NSMinY(frame) && mouse.y < NSMaxY(frame)) return displayID(screen);
+  }
+  // A display may disappear between input delivery and this lookup.
+  return displayID([NSScreen mainScreen] ?: [screens firstObject]);
+ }
+}
+
 // Inspect only the frontmost app's window geometry. No titles, pixels, AX API,
 // or screen-recording permission is needed. Run before showing the panel.
 static unsigned int activeWindowDisplay(int *matchedWindow) {
@@ -76,6 +92,16 @@ const macWindowCanJoinAllApplications application.MacWindowCollectionBehavior = 
 
 // Called on the AppKit main thread alongside the visibility mutation.
 func nativeApplicationIsActive() bool { return bool(C.popchatApplicationActive()) }
+
+// Capture once before activation; activation completion retains this screen.
+func mouseScreen() *application.Screen {
+	var id uint32
+	application.InvokeSync(func() { id = uint32(C.mouseDisplay()) })
+	if id == 0 {
+		return nil
+	}
+	return &application.Screen{ID: strconv.FormatUint(uint64(id), 10)}
+}
 
 func activeWindowScreen() *application.Screen {
 	screen, _ := activeWindowSelection()

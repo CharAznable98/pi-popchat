@@ -914,6 +914,9 @@ func (e *Engine) DeleteWithWorkspace(sid string, removeWorkspace bool) error {
 		defer e.mu.Unlock()
 		defer func() { s.deleting = false; e.changedLocked() }()
 		if closeErr != nil {
+			// Close may fail while the process is still alive. Keep ownership so
+			// its events and subsequent preparations use the same runtime.
+			e.runtimes[sid] = r
 			return "", closeErr
 		}
 		if e.closing {
@@ -1174,6 +1177,20 @@ func (e *Engine) Close() error {
 		_ = c.Close()
 	}
 	e.wg.Wait()
+	// A deletion may have restored a client after the first shutdown sweep.
+	// No new work can start once closing is set and tracked work has finished.
+	e.mu.Lock()
+	clients = nil
+	for _, r := range e.runtimes {
+		if r.client != nil {
+			clients = append(clients, r.client)
+			r.client = nil
+		}
+	}
+	e.mu.Unlock()
+	for _, c := range clients {
+		_ = c.Close()
+	}
 	return e.store.Close()
 }
 func (e *Engine) ReapIdle(age time.Duration) {

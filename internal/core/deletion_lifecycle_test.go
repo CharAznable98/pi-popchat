@@ -2,9 +2,11 @@ package core
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"pi-popchat/internal/agent"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -49,6 +51,87 @@ func deletionFixture(t *testing.T) (*Engine, string, *closeHookClient) {
 		t.Fatal(err)
 	}
 	return e, sid, c
+}
+
+type rejectRestartFactory struct{ starts int }
+
+func (f *rejectRestartFactory) Start(context.Context, agent.Config) (agent.Client, error) {
+	f.starts++
+	return nil, errors.New("unexpected second client")
+}
+
+func TestFailedDeletionCloseRestoresLiveRuntime(t *testing.T) {
+	for _, removeWorkspace := range []bool{false, true} {
+		t.Run(map[bool]string{false: "keep-workspace", true: "remove-workspace"}[removeWorkspace], func(t *testing.T) {
+			e, sid, c := deletionFixture(t)
+			e.mu.Lock()
+			original := e.runtimes[sid]
+			e.mu.Unlock()
+			closeErr := errors.New("client remains alive")
+			c.hook = func() error { return closeErr }
+			defer func() { c.hook = nil; _ = c.Close() }()
+			if err := e.DeleteWithWorkspace(sid, removeWorkspace); !errors.Is(err, closeErr) {
+				t.Fatalf("expected close error, got %v", err)
+			}
+			factory := &rejectRestartFactory{}
+			e.factory = factory
+			if err := e.Prepare(sid); err != nil {
+				t.Errorf("existing client unavailable after failed deletion: %v", err)
+			}
+			if factory.starts != 0 {
+				t.Error("failed deletion allowed a second client startup")
+			}
+			e.event(sid, original, c, map[string]any{"type": "agent_start"})
+			if e.Snapshot("main").Current.Status != "running" {
+				t.Error("live client's events ignored after failed deletion")
+			}
+		})
+	}
+}
+
+func TestShutdownClosesRuntimeRestoredByFailedDeletion(t *testing.T) {
+	e, sid, c := deletionFixture(t)
+	entered, release := make(chan struct{}), make(chan struct{})
+	var closes atomic.Int32
+	c.hook = func() error {
+		if closes.Add(1) == 1 {
+			close(entered)
+			<-release
+			return errors.New("first close failed")
+		}
+		return nil
+	}
+	deleted := make(chan error, 1)
+	go func() { deleted <- e.DeleteWithWorkspace(sid, true) }()
+	<-entered
+	shutdown := make(chan error, 1)
+	go func() { shutdown <- e.Close() }()
+	deadline := time.Now().Add(time.Second)
+	for {
+		e.mu.Lock()
+		closing := e.closing
+		e.mu.Unlock()
+		if closing {
+			break
+		}
+		if time.Now().After(deadline) {
+			close(release)
+			<-deleted
+			<-shutdown
+			t.Fatal("shutdown did not start")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	close(release)
+	if err := <-deleted; err == nil {
+		t.Error("expected failed deletion")
+	}
+	if err := <-shutdown; err != nil {
+		t.Fatal(err)
+	}
+	if closes.Load() != 2 {
+		t.Fatal("shutdown lost ownership of the restored live client")
+	}
 }
 func TestWorkspaceReplacementDuringCloseIsPreserved(t *testing.T) {
 	e, sid, c := deletionFixture(t)

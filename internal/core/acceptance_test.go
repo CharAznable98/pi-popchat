@@ -36,6 +36,8 @@ type acceptanceClient struct {
 	events        chan map[string]any
 	calls         chan map[string]any
 	once          sync.Once
+	doneInit      sync.Once
+	done          chan struct{}
 }
 
 func (f *acceptanceFactory) Start(ctx context.Context, cfg agent.Config) (agent.Client, error) {
@@ -76,7 +78,15 @@ func (c *acceptanceClient) Request(ctx context.Context, cmd map[string]any) (map
 	return map[string]any{"success": true, "data": data}, nil
 }
 func (c *acceptanceClient) Events() <-chan map[string]any { return c.events }
-func (c *acceptanceClient) Close() error                  { c.once.Do(func() { close(c.events) }); return nil }
+func (c *acceptanceClient) Done() <-chan struct{} {
+	c.doneInit.Do(func() { c.done = make(chan struct{}) })
+	return c.done
+}
+func (c *acceptanceClient) Close() error {
+	c.Done()
+	c.once.Do(func() { close(c.done); close(c.events) })
+	return nil
+}
 func (c *acceptanceClient) emit(typ string, fields map[string]any) {
 	if fields == nil {
 		fields = map[string]any{}

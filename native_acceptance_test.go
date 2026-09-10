@@ -45,18 +45,23 @@ func TestNativeAcceptanceCallbacksAfterShutdown(t *testing.T) {
 
 type nativeTestFactory struct{}
 type nativeTestClient struct {
+	done   chan struct{}
 	events chan map[string]any
 	once   sync.Once
 }
 
 func (nativeTestFactory) Start(context.Context, agent.Config) (agent.Client, error) {
-	return &nativeTestClient{events: make(chan map[string]any)}, nil
+	return &nativeTestClient{events: make(chan map[string]any), done: make(chan struct{})}, nil
 }
 func (c *nativeTestClient) Request(context.Context, map[string]any) (map[string]any, error) {
 	return map[string]any{"data": map[string]any{}}, nil
 }
 func (c *nativeTestClient) Events() <-chan map[string]any { return c.events }
-func (c *nativeTestClient) Close() error                  { c.once.Do(func() { close(c.events) }); return nil }
+func (c *nativeTestClient) Done() <-chan struct{}         { return c.done }
+func (c *nativeTestClient) Close() error {
+	c.once.Do(func() { close(c.done); close(c.events) })
+	return nil
+}
 
 func TestNativeAcceptanceQuitDecisionBoundaries(t *testing.T) {
 	if !(&Desktop{}).shouldQuit() {

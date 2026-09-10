@@ -26,6 +26,12 @@ type Client interface {
 	// Events must be consumed for the client's lifetime. The channel closes after
 	// process_exit, including when Close was requested by the application.
 	Events() <-chan map[string]any
+	// Done returns a stable, non-nil channel closed when the client has terminated
+	// and can no longer accept requests. It is independent of event consumption.
+	Done() <-chan struct{}
+	// Close returning nil guarantees Done is closed. An error alone does not
+	// determine liveness: if termination occurred, Done must close before return;
+	// otherwise the caller retains ownership and may retry closing the client.
 	Close() error
 }
 

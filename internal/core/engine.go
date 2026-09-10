@@ -914,8 +914,13 @@ func (e *Engine) DeleteWithWorkspace(sid string, removeWorkspace bool) error {
 		defer e.mu.Unlock()
 		defer func() { s.deleting = false; e.changedLocked() }()
 		if closeErr != nil {
-			// Close may fail while the process is still alive. Keep ownership so
-			// its events and subsequent preparations use the same runtime.
+			// The error can mean either failed termination or failed cleanup.
+			// Retain ownership only while the independent exit signal is open.
+			select {
+			case <-client.Done():
+				r.client = nil
+			default:
+			}
 			e.runtimes[sid] = r
 			return "", closeErr
 		}

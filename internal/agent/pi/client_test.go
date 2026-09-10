@@ -107,6 +107,23 @@ func TestConcurrentResponsesAndEvents(t *testing.T) {
 		t.Fatalf("events: %d", n)
 	}
 }
+
+func TestDoneSignalsTerminationWithoutDrainingEvents(t *testing.T) {
+	c := fakeClient(t)
+	select {
+	case <-c.Done():
+		t.Fatal("new client already terminated")
+	default:
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-c.Done():
+	default:
+		t.Fatal("successful Close returned before termination")
+	}
+}
 func TestFailureCancellationAndOneWay(t *testing.T) {
 	c := fakeClient(t)
 	_, err := c.Request(context.Background(), map[string]any{"type": "error"})

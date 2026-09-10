@@ -89,6 +89,30 @@ func TestFailedDeletionCloseRestoresLiveRuntime(t *testing.T) {
 	}
 }
 
+func TestFailedDeletionCloseDoesNotReuseTerminatedClient(t *testing.T) {
+	for _, removeWorkspace := range []bool{false, true} {
+		t.Run(map[bool]string{false: "keep-workspace", true: "remove-workspace"}[removeWorkspace], func(t *testing.T) {
+			e, sid, c := deletionFixture(t)
+			closeErr := errors.New("cleanup failed after termination")
+			c.hook = func() error { _ = c.acceptanceClient.Close(); return closeErr }
+			if err := e.DeleteWithWorkspace(sid, removeWorkspace); !errors.Is(err, closeErr) {
+				t.Fatalf("expected cleanup error, got %v", err)
+			}
+			factory := &acceptanceFactory{starts: make(chan *acceptanceClient, 2)}
+			e.factory = factory
+			if err := e.Prepare(sid); err != nil {
+				t.Fatal(err)
+			}
+			if len(factory.starts) != 1 {
+				t.Fatal("Prepare reused the terminated client instead of starting a replacement")
+			}
+			if err := e.Prepare(sid); err != nil || len(factory.starts) != 1 {
+				t.Fatalf("replacement was not reused: %v", err)
+			}
+		})
+	}
+}
+
 func TestShutdownClosesRuntimeRestoredByFailedDeletion(t *testing.T) {
 	e, sid, c := deletionFixture(t)
 	entered, release := make(chan struct{}), make(chan struct{})

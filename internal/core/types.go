@@ -68,7 +68,8 @@ type Session struct {
 	SessionFile      string       `json:"sessionFile"`
 	Provider         string       `json:"provider"`
 
-	// Transient preparation identity; not part of persisted or frontend state.
+	// Transient lifecycle state; not part of persisted or frontend state.
+	deleting           bool
 	preparationAttempt uint64
 	preparationFailure string
 }

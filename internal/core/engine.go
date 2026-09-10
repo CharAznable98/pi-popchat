@@ -104,6 +104,17 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 	}
 	return e, nil
 }
+
+// Call with e.mu held. A deletion keeps its record visible but excludes it
+// from new operations while its Agent is being closed without the engine lock.
+func (e *Engine) sessionLocked(sid string) *Session {
+	s := e.sessions[sid]
+	if s != nil && s.deleting {
+		return nil
+	}
+	return s
+}
+
 func (e *Engine) Root() string { return e.store.Root }
 func (e *Engine) changedLocked() {
 	e.version++
@@ -113,8 +124,8 @@ func (e *Engine) changedLocked() {
 }
 func (e *Engine) saveLocked(s *Session) error {
 	// All callers, including RPC completions, must still own a live session.
-	// Delete removes it under the same mutex before any late completion can save.
-	if e.sessions[s.ID] != s {
+	// Delete invalidates it under the same mutex before any late completion can save.
+	if e.sessionLocked(s.ID) != s {
 		return errors.New("会话已删除或失效")
 	}
 	s.SearchableText = s.Title
@@ -176,10 +187,18 @@ func (e *Engine) newLocked(view, cwd string) (string, error) {
 	}
 	for _, s := range e.sessions {
 		if s.DraftOnly {
-			e.selected[view] = s.ID
-			if err := e.store.Set("selected", e.selected); err != nil {
+			if s.deleting {
+				return "", errors.New("草稿正在删除，请稍后重试")
+			}
+			next := make(map[string]string, len(e.selected)+1)
+			for key, value := range e.selected {
+				next[key] = value
+			}
+			next[view] = s.ID
+			if err := e.store.Set("selected", next); err != nil {
 				return "", err
 			}
+			e.selected = next
 			e.changedLocked()
 			return s.ID, nil
 		}
@@ -217,7 +236,7 @@ func (e *Engine) Select(view, sid string) error {
 	if e.closing {
 		return errors.New("应用正在退出")
 	}
-	if e.sessions[sid] == nil {
+	if e.sessionLocked(sid) == nil {
 		return errors.New("会话不存在")
 	}
 	e.selected[view] = sid
@@ -228,7 +247,7 @@ func (e *Engine) Select(view, sid string) error {
 func (e *Engine) PanelShown() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	s := e.sessions[e.selected["panel"]]
+	s := e.sessionLocked(e.selected["panel"])
 	if s == nil || (!e.hiddenAt.IsZero() && time.Since(e.hiddenAt) > 30*time.Minute && !s.DraftOnly && !busy(s.Status)) {
 		_, err := e.newLocked("panel", "")
 		return err
@@ -247,7 +266,7 @@ func (e *Engine) PanelHidden() {
 func (e *Engine) Transfer() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.sessions[e.selected["panel"]] == nil {
+	if e.sessionLocked(e.selected["panel"]) == nil {
 		return errors.New("没有浮窗会话")
 	}
 	e.selected["main"] = e.selected["panel"]
@@ -303,7 +322,7 @@ func (e *Engine) finishPreparation(s *Session, attempt uint64, wasDraft bool, c 
 	defer e.mu.Unlock()
 	// Ignore obsolete attempts, deletion, shutdown, and draft promotion. Once
 	// submitted, delivery owns execution failures and queue state.
-	if s == nil || e.closing || e.sessions[s.ID] != s || s.preparationAttempt != attempt || (wasDraft && !s.DraftOnly) {
+	if s == nil || e.closing || e.sessionLocked(s.ID) != s || s.preparationAttempt != attempt || (wasDraft && !s.DraftOnly) {
 		return
 	}
 	if err != nil && c == nil {
@@ -336,7 +355,7 @@ func (e *Engine) ensureMetadata(sid string, refresh bool) (agent.Client, error) 
 
 func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Session)) (agent.Client, error) {
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil || e.closing {
 		e.mu.Unlock()
 		return nil, errors.New("会话不可用")
@@ -350,7 +369,7 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 	r.start.Lock()
 	defer r.start.Unlock()
 	e.mu.Lock()
-	s = e.sessions[sid]
+	s = e.sessionLocked(sid)
 	if s == nil || e.closing || e.runtimes[sid] != r {
 		e.mu.Unlock()
 		return nil, errors.New("会话或 Agent 已失效")
@@ -370,7 +389,7 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 		}
 		return c, nil
 	}
-	s = e.sessions[sid]
+	s = e.sessionLocked(sid)
 	if s == nil || e.closing {
 		e.mu.Unlock()
 		return nil, errors.New("应用正在退出")
@@ -396,7 +415,7 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 		return nil, err
 	}
 	e.mu.Lock()
-	if e.closing || e.sessions[sid] == nil || e.runtimes[sid] != r {
+	if e.closing || e.sessionLocked(sid) == nil || e.runtimes[sid] != r {
 		e.mu.Unlock()
 		c.Close()
 		return nil, errors.New("应用正在退出")
@@ -412,7 +431,7 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 				if errors.Is(readErr, agent.ErrHistoryMissing) {
 					e.mu.Lock()
 					hasHistory := false
-					if current := e.sessions[sid]; current != nil {
+					if current := e.sessionLocked(sid); current != nil {
 						for _, m := range current.Messages {
 							if m.AgentKey != "" || m.Role == "assistant" {
 								hasHistory = true
@@ -461,7 +480,7 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 // Model discovery has a lifecycle separate from conversation execution.
 func (e *Engine) loadModels(ctx context.Context, sid string, c agent.Client) error {
 	e.mu.Lock()
-	if s := e.sessions[sid]; s != nil {
+	if s := e.sessionLocked(sid); s != nil {
 		s.ModelsState = "loading"
 		s.ModelsError = ""
 		e.changedLocked()
@@ -473,7 +492,7 @@ func (e *Engine) loadModels(ctx context.Context, sid string, c agent.Client) err
 		return nil
 	}
 	e.mu.Lock()
-	if s := e.sessions[sid]; s != nil {
+	if s := e.sessionLocked(sid); s != nil {
 		s.ModelsState = "error"
 		s.ModelsError = err.Error()
 		e.changedLocked()
@@ -495,7 +514,7 @@ func (e *Engine) Refresh(sid string) error {
 
 func (e *Engine) prepareMetadata(sid string, refresh bool) error {
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	wasDraft := s != nil && s.DraftOnly
 	e.mu.Unlock()
 	var attempt uint64
@@ -526,7 +545,7 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 		return errors.New("消息缺少唯一标识")
 	}
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil || e.closing {
 		e.mu.Unlock()
 		return errors.New("会话不可用")
@@ -633,7 +652,7 @@ func (e *Engine) scheduleLocked(sid string, m Message, kind string) {
 // settled can arrive while a submission is still completing its state query.
 // The last submission must release that reservation and reconsider the queue.
 func (e *Engine) advanceIdleQueueLocked(sid string) {
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if e.closing || s == nil || s.Status != "idle" || s.QueuePaused || len(s.Queue) == 0 {
 		return
 	}
@@ -668,7 +687,7 @@ func (e *Engine) deliver(ctx context.Context, sid string, m Message, kind string
 		return
 	}
 	e.mu.Lock()
-	current := e.sessions[sid]
+	current := e.sessionLocked(sid)
 	if current == nil || e.closing || ctx.Err() != nil || current.Status == "stopped" || current.Status == "interrupted" {
 		e.mu.Unlock()
 		return
@@ -717,7 +736,7 @@ func (e *Engine) deliver(ctx context.Context, sid string, m Message, kind string
 		return
 	}
 	e.mu.Lock()
-	if s := e.sessions[sid]; s != nil && !e.closing {
+	if s := e.sessionLocked(sid); s != nil && !e.closing {
 		for i := range s.Messages {
 			if s.Messages[i].ID == m.ID && s.Messages[i].Status == "sending" {
 				s.Messages[i].Status = "accepted"
@@ -742,7 +761,7 @@ func (e *Engine) deliver(ctx context.Context, sid string, m Message, kind string
 func (e *Engine) deliveryError(sid, mid string, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil {
 		return
 	}
@@ -765,7 +784,7 @@ func (e *Engine) DraftWithAttachments(sid, text string, expected *string, attach
 func (e *Engine) DraftWithRevision(sid, text string, expected *string, attachments []Attachment, revision *uint64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil {
 		return errors.New("会话不存在")
 	}
@@ -787,7 +806,7 @@ func (e *Engine) DraftWithRevision(sid, text string, expected *string, attachmen
 func (e *Engine) Rename(sid, title string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil {
 		return errors.New("会话不存在")
 	}
@@ -801,7 +820,7 @@ func (e *Engine) Rename(sid, title string) error {
 func (e *Engine) Pin(sid string, pin bool) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil {
 		return errors.New("会话不存在")
 	}
@@ -817,7 +836,7 @@ func (e *Engine) SetCWD(sid, cwd string) error {
 		e.mu.Unlock()
 		return errors.New("请选择有效文件夹")
 	}
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil || len(s.Messages) > 0 || busy(s.Status) {
 		e.mu.Unlock()
 		return errors.New("已有消息的会话不能更换工作目录，请新建会话")
@@ -849,73 +868,96 @@ func (e *Engine) DeleteWithWorkspace(sid string, removeWorkspace bool) error {
 		e.mu.Unlock()
 		return nil
 	}
+	if e.closing || s.deleting {
+		e.mu.Unlock()
+		return errors.New("会话正在删除或应用正在退出")
+	}
 	if busy(s.Status) {
 		e.mu.Unlock()
 		return errors.New("请先停止任务再删除会话")
 	}
-	staged := ""
+	var expected os.FileInfo
+	var err error
 	if removeWorkspace {
-		if err := e.validateWorkspaceRemovalLocked(s); err != nil {
+		expected, err = e.validateWorkspaceRemovalLocked(s)
+		if err != nil {
 			e.mu.Unlock()
 			return err
 		}
-		// Do not race a metadata startup that may still create this directory.
-		if r := e.runtimes[sid]; r != nil {
+	}
+	r := e.runtimes[sid]
+	var client agent.Client
+	if r != nil {
+		if removeWorkspace {
 			if !r.start.TryLock() {
 				e.mu.Unlock()
 				return errors.New("Agent 正在准备，请稍后重试删除")
 			}
-			defer r.start.Unlock()
-			if r.client != nil {
-				if err := r.client.Close(); err != nil {
-					e.mu.Unlock()
-					return err
+		}
+		client = r.client
+		delete(e.runtimes, sid)
+		if removeWorkspace {
+			r.start.Unlock()
+		}
+	}
+	s.deleting = true
+	e.wg.Add(1)
+	e.mu.Unlock()
+	defer e.wg.Done()
+	// Closing can wait for process termination. Other windows must stay usable.
+	var closeErr error
+	if client != nil {
+		closeErr = client.Close()
+	}
+	e.mu.Lock()
+	staged, err := func() (string, error) {
+		defer e.mu.Unlock()
+		defer func() { s.deleting = false; e.changedLocked() }()
+		if closeErr != nil {
+			return "", closeErr
+		}
+		if e.closing {
+			return "", errors.New("应用正在退出")
+		}
+		staged := ""
+		if removeWorkspace {
+			// Directory references and external filesystem identity may change while
+			// Close waits, so validate both again before staging.
+			current, err := e.validateWorkspaceRemovalLocked(s)
+			if err != nil {
+				return "", err
+			}
+			if current != nil && (expected == nil || !os.SameFile(expected, current)) {
+				return "", errors.New("工作目录已被替换，已停止删除并保留会话")
+			}
+			staged, err = stageWorkspaceForRemoval(s.CWD, e.store.Root, sid, expected)
+			if err != nil {
+				return "", err
+			}
+		}
+		if err := e.store.Delete(sid); err != nil {
+			if staged != "" {
+				if restoreErr := os.Rename(staged, s.CWD); restoreErr != nil {
+					err = fmt.Errorf("删除会话失败：%w；恢复目录失败，文件仍在 %s：%v", err, staged, restoreErr)
 				}
 			}
-			delete(e.runtimes, sid)
+			return "", err
 		}
-		// Move first, so a database failure can restore the complete directory.
-		staged = filepath.Join(e.store.Root, "workspaces", ".deleting-"+sid+"-"+id())
-		if err := os.Rename(s.CWD, staged); err != nil {
-			if !os.IsNotExist(err) {
-				e.mu.Unlock()
-				return fmt.Errorf("准备删除工作目录失败：%w", err)
-			}
-			staged = ""
-		}
-	}
-	if err := e.store.Delete(sid); err != nil {
-		if staged != "" {
-			if restoreErr := os.Rename(staged, s.CWD); restoreErr != nil {
-				err = fmt.Errorf("删除会话失败：%w；恢复目录失败，文件仍在 %s：%v", err, staged, restoreErr)
+		delete(e.sessions, sid)
+		delete(e.committed, sid)
+		for view, selected := range e.selected {
+			if selected == sid {
+				delete(e.selected, view)
 			}
 		}
-		e.mu.Unlock()
+		_ = e.store.Set("selected", e.selected)
+		return staged, nil
+	}()
+	if err != nil {
 		return err
 	}
-	delete(e.sessions, sid)
-	delete(e.committed, sid)
-	r := e.runtimes[sid]
-	var client agent.Client
-	if r != nil {
-		client = r.client
-	}
-	delete(e.runtimes, sid)
-	for v, id := range e.selected {
-		if id == sid {
-			delete(e.selected, v)
-		}
-	}
-	_ = e.store.Set("selected", e.selected)
-	e.changedLocked()
-	e.mu.Unlock()
-	if client != nil {
-		if err := client.Close(); err != nil {
-			return err
-		}
-	}
 	if staged != "" {
-		if err := os.RemoveAll(staged); err != nil {
+		if err := removeStagedWorkspace(staged, expected); err != nil {
 			return fmt.Errorf("会话已删除，但工作文件未完全清理，请在 %s 手动处理：%w", staged, err)
 		}
 	}
@@ -926,7 +968,7 @@ func (e *Engine) QueueAction(sid, action, mid string) error {
 		return errors.New("未知队列操作")
 	}
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil {
 		e.mu.Unlock()
 		return errors.New("会话不存在")
@@ -994,7 +1036,7 @@ func (e *Engine) QueueAction(sid, action, mid string) error {
 }
 func (e *Engine) Stop(sid string) error {
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	r := e.runtimes[sid]
 	if s == nil {
 		e.mu.Unlock()
@@ -1028,6 +1070,10 @@ func (e *Engine) Stop(sid string) error {
 		}
 	}
 	e.mu.Lock()
+	if e.sessionLocked(sid) != s || e.closing {
+		e.mu.Unlock()
+		return errors.New("会话已删除或失效")
+	}
 	s.Status = "stopped"
 	err := e.saveLocked(s)
 	e.mu.Unlock()
@@ -1035,7 +1081,7 @@ func (e *Engine) Stop(sid string) error {
 }
 func (e *Engine) Respond(sid, rid string, value any, cancelled bool) error {
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	r := e.runtimes[sid]
 	if s == nil || s.Interaction == nil || s.Interaction.ID != rid || r == nil || r.client == nil {
 		e.mu.Unlock()
@@ -1058,6 +1104,10 @@ func (e *Engine) Respond(sid, rid string, value any, cancelled bool) error {
 		return err
 	}
 	e.mu.Lock()
+	if e.sessionLocked(sid) != s || e.closing {
+		e.mu.Unlock()
+		return errors.New("会话已删除或失效")
+	}
 	if s.Interaction != nil && s.Interaction.ID == rid {
 		s.Interaction = nil
 		s.Status = "running"
@@ -1068,7 +1118,7 @@ func (e *Engine) Respond(sid, rid string, value any, cancelled bool) error {
 }
 func (e *Engine) SetModel(sid, provider, model string) error {
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil || busy(s.Status) {
 		e.mu.Unlock()
 		return errors.New("请在当前任务结束后切换模型")
@@ -1086,6 +1136,10 @@ func (e *Engine) SetModel(sid, provider, model string) error {
 	}
 	_ = res
 	e.mu.Lock()
+	if e.sessionLocked(sid) != s || e.closing {
+		e.mu.Unlock()
+		return errors.New("会话已删除或失效")
+	}
 	s.Model = model
 	s.Provider = provider
 	err = e.saveLocked(s)
@@ -1126,7 +1180,8 @@ func (e *Engine) ReapIdle(age time.Duration) {
 	e.mu.Lock()
 	clients := []agent.Client{}
 	for sid, r := range e.runtimes {
-		if r.client != nil && !busy(e.sessions[sid].Status) && len(e.sessions[sid].Queue) == 0 && time.Since(r.lastUsed) > age {
+		s := e.sessionLocked(sid)
+		if s != nil && r.client != nil && !busy(s.Status) && len(s.Queue) == 0 && time.Since(r.lastUsed) > age {
 			clients = append(clients, r.client)
 			r.client = nil
 			delete(e.runtimes, sid)

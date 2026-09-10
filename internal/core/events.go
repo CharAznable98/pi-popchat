@@ -29,7 +29,7 @@ func textContent(v any) string {
 func (e *Engine) applyMetadata(sid, kind string, res map[string]any) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil || e.closing {
 		return
 	}
@@ -104,7 +104,7 @@ func (e *Engine) consume(sid string, r *runtime, c agent.Client) {
 }
 func (e *Engine) event(sid string, r *runtime, c agent.Client, ev map[string]any) {
 	e.mu.Lock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil || e.closing || e.runtimes[sid] != r || r.client != c {
 		e.mu.Unlock()
 		return
@@ -309,7 +309,7 @@ func anySlice(v any) []any { a, _ := v.([]any); return a }
 func (e *Engine) finishCommand(sid, mid string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	s := e.sessions[sid]
+	s := e.sessionLocked(sid)
 	if s == nil || e.closing || s.Interaction != nil {
 		return
 	}

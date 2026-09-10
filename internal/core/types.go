@@ -67,6 +67,10 @@ type Session struct {
 	SearchableText   string       `json:"searchableText"`
 	SessionFile      string       `json:"sessionFile"`
 	Provider         string       `json:"provider"`
+
+	// Transient preparation identity; not part of persisted or frontend state.
+	preparationAttempt uint64
+	preparationFailure string
 }
 type Settings struct {
 	Shortcut string `json:"shortcut"`

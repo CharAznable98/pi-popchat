@@ -73,6 +73,11 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 	}
 	e.environment = Environment{PiPath: e.executable, Available: e.executable != ""}
 	for _, s := range all {
+		// A draft has never run a submitted task; its persisted failure belongs
+		// to preparation and may be cleared when reconnection succeeds.
+		if s.DraftOnly && s.Status == "failed" {
+			s.preparationFailure = s.Error
+		}
 		s.ModelsState = ""
 		s.ModelsError = ""
 		if busy(s.Status) {
@@ -107,6 +112,11 @@ func (e *Engine) changedLocked() {
 	}
 }
 func (e *Engine) saveLocked(s *Session) error {
+	// All callers, including RPC completions, must still own a live session.
+	// Delete removes it under the same mutex before any late completion can save.
+	if e.sessions[s.ID] != s {
+		return errors.New("会话已删除或失效")
+	}
 	s.SearchableText = s.Title
 	for _, m := range s.Messages {
 		s.SearchableText += "\n" + m.Text
@@ -192,10 +202,11 @@ func (e *Engine) newLocked(view, cwd string) (string, error) {
 	}
 	s := &Session{DraftOnly: true, CWDSource: source, ID: sid, Title: "新对话", CWD: cwd, CreatedAt: now(), UpdatedAt: now(), Status: "idle", SessionFile: filepath.Join(e.store.Root, "sessions", sid, "session.jsonl")}
 	normalize(s)
+	e.sessions[sid] = s
 	if err := e.saveLocked(s); err != nil {
+		delete(e.sessions, sid)
 		return "", err
 	}
-	e.sessions[sid] = s
 	e.selected[view] = sid
 	_ = e.store.Set("selected", e.selected)
 	return sid, nil
@@ -287,27 +298,43 @@ func (e *Engine) ActiveCount() int {
 	}
 	return n
 }
-func (e *Engine) failPreparation(sid string, wasDraft bool, err error) {
+func (e *Engine) finishPreparation(s *Session, attempt uint64, wasDraft bool, c agent.Client, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.closing {
+	// Ignore obsolete attempts, deletion, shutdown, and draft promotion. Once
+	// submitted, delivery owns execution failures and queue state.
+	if s == nil || e.closing || e.sessions[s.ID] != s || s.preparationAttempt != attempt || (wasDraft && !s.DraftOnly) {
 		return
 	}
-	s := e.sessions[sid]
-	// Once submitted, delivery owns execution failures. An earlier metadata
-	// preparation must not pause its queue or overwrite its execution state.
-	if s == nil || (wasDraft && !s.DraftOnly) {
-		return
+	if err != nil && c == nil {
+		s.Status = "failed"
+		s.Error = err.Error()
+		s.QueuePaused = !s.DraftOnly
+		if s.DraftOnly {
+			s.preparationFailure = s.Error
+		}
+		_ = e.saveLocked(s)
+	} else if err == nil && s.DraftOnly && s.Status == "failed" && s.preparationFailure != "" && s.Error == s.preparationFailure {
+		r := e.runtimes[s.ID]
+		if r == nil || r.client != c {
+			return
+		}
+		s.Status = "idle"
+		s.Error = ""
+		s.QueuePaused = false
+		if e.saveLocked(s) == nil {
+			s.preparationFailure = ""
+		}
 	}
-	s.Status = "failed"
-	s.Error = err.Error()
-	s.QueuePaused = !s.DraftOnly
-	_ = e.saveLocked(s)
 }
 func (e *Engine) ensure(sid string) (agent.Client, error) {
 	return e.ensureMetadata(sid, false)
 }
 func (e *Engine) ensureMetadata(sid string, refresh bool) (agent.Client, error) {
+	return e.ensureMetadataAttempt(sid, refresh, nil)
+}
+
+func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Session)) (agent.Client, error) {
 	e.mu.Lock()
 	s := e.sessions[sid]
 	if s == nil || e.closing {
@@ -323,6 +350,15 @@ func (e *Engine) ensureMetadata(sid string, refresh bool) (agent.Client, error) 
 	r.start.Lock()
 	defer r.start.Unlock()
 	e.mu.Lock()
+	s = e.sessions[sid]
+	if s == nil || e.closing || e.runtimes[sid] != r {
+		e.mu.Unlock()
+		return nil, errors.New("会话或 Agent 已失效")
+	}
+	// Number actual serialized attempts, not goroutine scheduling order.
+	if begin != nil {
+		begin(s)
+	}
 	if r.client != nil {
 		c := r.client
 		r.lastUsed = time.Now()
@@ -455,9 +491,15 @@ func (e *Engine) prepareMetadata(sid string, refresh bool) error {
 	s := e.sessions[sid]
 	wasDraft := s != nil && s.DraftOnly
 	e.mu.Unlock()
-	c, err := e.ensureMetadata(sid, refresh)
-	if err != nil && c == nil {
-		e.failPreparation(sid, wasDraft, err)
+	var attempt uint64
+	c, err := e.ensureMetadataAttempt(sid, refresh, func(current *Session) {
+		if current == s {
+			s.preparationAttempt++
+			attempt = s.preparationAttempt
+		}
+	})
+	if attempt != 0 {
+		e.finishPreparation(s, attempt, wasDraft, c, err)
 	}
 	return err
 }

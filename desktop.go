@@ -99,7 +99,12 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 		if mid == "" {
 			mid = str("clientId")
 		}
-		err = d.engine.Send(sid, str("text"), mid, attachments)
+		var revision *uint64
+		if n, ok := p["expectedDraftRevision"].(float64); ok {
+			v := uint64(n)
+			revision = &v
+		}
+		err = d.engine.SendWithRevision(sid, str("text"), mid, attachments, revision)
 	case "draft":
 		var expected *string
 		if x, ok := p["expectedDraft"].(string); ok {
@@ -128,7 +133,8 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 		v, _ := p["pinned"].(bool)
 		err = d.engine.Pin(str("id"), v)
 	case "delete":
-		err = d.engine.Delete(str("id"))
+		removeWorkspace, _ := p["removeWorkspace"].(bool)
+		err = d.engine.DeleteWithWorkspace(str("id"), removeWorkspace)
 	case "respond":
 		cancelled, _ := p["cancelled"].(bool)
 		err = d.engine.Respond(sid, str("requestId"), p["value"], cancelled)

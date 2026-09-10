@@ -48,6 +48,9 @@ export interface Model {
 }
 
 export interface Session {
+    "draftOnly": boolean;
+    "cwdSource"?: string;
+    "managedWorkspace": boolean;
     "draftRevision": number;
     "draftAttachments": Attachment[] | null;
     "id": string;
@@ -63,6 +66,8 @@ export interface Session {
     "queue": Message[] | null;
     "queuePaused": boolean;
     "interaction": Interaction | null;
+    "modelsState": string;
+    "modelsError": string;
     "models": Model[] | null;
     "model": string;
     "commands": Command[] | null;

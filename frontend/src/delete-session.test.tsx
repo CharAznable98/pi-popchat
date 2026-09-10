@@ -35,3 +35,17 @@ it("删除失败保留确认框和错误，可重试",async()=>{
  await within(screen.getByRole("alertdialog")).findByText("Error: 磁盘只读");expect(screen.getByRole("alertdialog")).toBeTruthy();
  fireEvent.click(screen.getByRole("button",{name:"确认删除"}));await waitFor(()=>expect(screen.queryByRole("alertdialog")).toBeNull());expect(mock.action).toHaveBeenCalledTimes(2);
 });
+it("默认托管目录显示路径，保留目录选项不提交删除目录标志",async()=>{
+ const s=state();s.current!.managedWorkspace=true;mock.snapshot.mockResolvedValue(s);
+ const dialog=await openDelete();expect(within(dialog).getByText("/work")).toBeTruthy();
+ expect(within(dialog).getByRole("button",{name:"删除会话及工作目录"})).toBeTruthy();
+ fireEvent.click(within(dialog).getByRole("button",{name:"删除会话"}));
+ await waitFor(()=>expect(mock.action).toHaveBeenCalledWith("delete",{id:"delete-target"}));
+});
+it("明确选择后才删除托管目录，自选目录不提供此选项",async()=>{
+ const s=state();s.current!.managedWorkspace=true;mock.snapshot.mockResolvedValue(s);
+ const dialog=await openDelete();fireEvent.click(within(dialog).getByRole("button",{name:"删除会话及工作目录"}));
+ await waitFor(()=>expect(mock.action).toHaveBeenCalledWith("delete",{id:"delete-target",removeWorkspace:true}));
+ cleanup();mock.snapshot.mockResolvedValue(state());await openDelete();
+ expect(screen.queryByRole("button",{name:"删除会话及工作目录"})).toBeNull();
+});

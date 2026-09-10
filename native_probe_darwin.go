@@ -446,15 +446,20 @@ func runDesktopProbe(d *Desktop) int {
 
 type nativeProbeFactory struct{}
 type nativeProbeClient struct {
+	done   chan struct{}
 	events chan map[string]any
 	once   sync.Once
 }
 
 func (nativeProbeFactory) Start(context.Context, agent.Config) (agent.Client, error) {
-	return &nativeProbeClient{events: make(chan map[string]any)}, nil
+	return &nativeProbeClient{events: make(chan map[string]any), done: make(chan struct{})}, nil
 }
 func (c *nativeProbeClient) Request(context.Context, map[string]any) (map[string]any, error) {
 	return map[string]any{"data": map[string]any{}}, nil
 }
 func (c *nativeProbeClient) Events() <-chan map[string]any { return c.events }
-func (c *nativeProbeClient) Close() error                  { c.once.Do(func() { close(c.events) }); return nil }
+func (c *nativeProbeClient) Done() <-chan struct{}         { return c.done }
+func (c *nativeProbeClient) Close() error {
+	c.once.Do(func() { close(c.done); close(c.events) })
+	return nil
+}

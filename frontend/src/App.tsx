@@ -45,11 +45,11 @@ export function App() {
     followOutput = useRef(true),
     fileInput = useRef<HTMLInputElement>(null),
     sendLock = useRef(false),
-    pendingSend = useRef<{
+    pendingSends = useRef(new Map<string, {
       id: string;
       text: string;
       attachments: Attachment[];
-    } | null>(null),
+    }>()),
     draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     localDrafts = useRef(
       new Map<
@@ -80,7 +80,6 @@ export function App() {
       attachmentRef.current = local?.attachments ?? c?.draftAttachments ?? [];
       setAttachments(attachmentRef.current);
       setConflict(false);
-      pendingSend.current = null;
       setTimeout(() => input.current?.focus(), 0);
     } else if (c && !dirty.current) {
       draft.current = c.draft || "";
@@ -243,26 +242,42 @@ export function App() {
     )
       return;
     const sendingSession = current.id;
+    const sendingRevision = draftRevision.current;
+    const sendingBase = base.current;
     followOutput.current = true;
     sendLock.current = true;
     setSending(true);
     if (draftTimer.current) clearTimeout(draftTimer.current);
     const content = draft.current;
     const files = attachmentRef.current;
-    const candidate = pendingSend.current;
+    const candidate = pendingSends.current.get(sendingSession);
     const transaction =
       candidate &&
       candidate.text === content &&
       JSON.stringify(candidate.attachments) === JSON.stringify(files)
         ? candidate
         : { id: crypto.randomUUID(), text: content, attachments: files };
-    pendingSend.current = transaction;
+    pendingSends.current.set(sendingSession, transaction);
     try {
       if (persistLock.current) await persistLock.current;
+      // Even an already saved draft belongs to this pending submission. Keep
+      // it locally until success, so notifications and conflict refreshes cannot
+      // replace its text or attachments with another window's draft.
+      const stillSelected = sessionId.current === sendingSession;
+      if (!localDrafts.current.has(sendingSession)) {
+        localDrafts.current.set(sendingSession, {
+          text: transaction.text,
+          attachments: transaction.attachments,
+          base: stillSelected ? base.current : sendingBase,
+          revision: stillSelected ? draftRevision.current : sendingRevision,
+        });
+      }
+      if (stillSelected) dirty.current = true;
       const result = await act("send", {
         text: transaction.text,
         attachments: transaction.attachments,
         clientMessageId: transaction.id,
+        expectedDraftRevision: sessionId.current === sendingSession ? draftRevision.current : sendingRevision,
         id: sendingSession,
       });
       if (sessionId.current === sendingSession) {
@@ -284,8 +299,19 @@ export function App() {
         localDrafts.current.delete(current.id);
         setConflict(false);
       }
-      pendingSend.current = null;
-    } catch {
+      const local = localDrafts.current.get(sendingSession);
+      if (local?.text === transaction.text &&
+          JSON.stringify(local.attachments) === JSON.stringify(transaction.attachments)) {
+        localDrafts.current.delete(sendingSession);
+      }
+      if (pendingSends.current.get(sendingSession) === transaction) {
+        pendingSends.current.delete(sendingSession);
+      }
+    } catch (error) {
+      if (String(error).includes("另一窗口已更新或发送草稿")) {
+        if (sessionId.current === sendingSession) setConflict(true);
+        void refresh();
+      }
     } finally {
       sendLock.current = false;
       setSending(false);
@@ -476,7 +502,7 @@ export function App() {
           }}
           run={run}
           navigate={navigate}
-          onDelete={(id) => act("delete", { id })}
+          onDelete={(id, removeWorkspace) => act("delete", { id, ...(removeWorkspace ? { removeWorkspace: true } : {}) })}
         />
       )}
       <main className="conversation">

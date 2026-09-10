@@ -34,3 +34,6 @@
 状态为 idle、starting、running、retrying、waiting、interrupted、failed、stopped。状态说明只表示 Agent 执行情况，不断言用户业务目标已经达到。待发送队列由后端管理；前端不实现第二份投递调度器。
 
 附件先持久化再提交；异步上传结果仍保存到原会话。输入法 composition 或键码 229 期间 Enter/Esc 不触发发送或隐藏。Markdown 不执行原始 HTML，链接仅交给已校验的 HTTP(S) 或本地文件打开功能。
+
+
+2026-09-10：`current.draftOnly` 表示共享未发送草稿，仍有稳定 ID 和正常输入能力，但不出现在 `sessions` 中。`new` 复用唯一草稿；首次 `send` 携带 `expectedDraftRevision`，原子转为正式会话，ID 不变。`managedWorkspace` 由后端判定；删除只有用户明确选择时传 `removeWorkspace: true`，后端仍重新校验目录所有权和引用。

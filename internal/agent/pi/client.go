@@ -113,6 +113,7 @@ type client struct {
 }
 
 func (c *client) Events() <-chan map[string]any { return c.events }
+func (c *client) Done() <-chan struct{}         { return c.done }
 func (c *client) Request(ctx context.Context, command map[string]any) (map[string]any, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

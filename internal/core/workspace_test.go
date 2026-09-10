@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDeleteWorkspaceOwnershipAndChoice(t *testing.T) {
@@ -62,7 +63,7 @@ func TestDeleteWorkspaceOwnershipAndChoice(t *testing.T) {
 				}
 			}
 			err := e.DeleteWithWorkspace(sid, mode != "keep")
-			denied := mode == "user" || mode == "symlink" || mode == "parent-symlink" || mode == "shared" || mode == "busy"
+			denied := mode == "legacy" || mode == "user" || mode == "symlink" || mode == "parent-symlink" || mode == "shared" || mode == "busy"
 			if denied {
 				if err == nil {
 					t.Fatal("unsafe removal accepted")
@@ -163,6 +164,84 @@ func TestDeleteWorkspaceRejectsAncestorReference(t *testing.T) {
 			}
 			if e.CurrentID("main") != sid || e.CurrentID("panel") != other {
 				t.Error("rejected deletion changed selections")
+			}
+		})
+	}
+}
+
+func TestUnknownWorkspaceSourceNeverAuthorizesRemoval(t *testing.T) {
+	e, _ := acceptanceEngine(t)
+	sid, err := e.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cwd := e.Snapshot("main").Current.CWD
+	if err = os.MkdirAll(cwd, 0700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(cwd, "fixture.txt")
+	if err = os.WriteFile(file, []byte("fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	e.mu.Lock()
+	s := e.sessions[sid]
+	s.CWDSource = ""
+	err = e.saveLocked(s)
+	e.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Snapshot("main").Current.ManagedWorkspace {
+		t.Error("unknown legacy source advertised as managed")
+	}
+	if err = e.DeleteWithWorkspace(sid, true); err == nil {
+		t.Error("unknown legacy source allowed recursive deletion")
+	}
+	if _, err = os.Stat(file); err != nil {
+		t.Error("legacy work file was removed")
+	}
+}
+
+func TestDirectorySelectionAndDeletionSerialize(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			e, _ := acceptanceEngine(t)
+			sid, err := e.NewSession("main", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			cwd := e.Snapshot("main").Current.CWD
+			if err = os.MkdirAll(cwd, 0700); err != nil {
+				t.Fatal(err)
+			}
+			e.mu.Lock()
+			e.sessions[sid].DraftOnly = false
+			err = e.saveLocked(e.sessions[sid])
+			e.mu.Unlock()
+			if err != nil {
+				t.Fatal(err)
+			}
+			other, err := e.NewSession("panel", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			removed := make(chan error, 1)
+			selected := make(chan error, 1)
+			// Queue deletion first while selection can still inspect the existing path.
+			e.mu.Lock()
+			go func() { removed <- e.DeleteWithWorkspace(sid, true) }()
+			time.Sleep(time.Millisecond)
+			go func() { selected <- e.SetCWD(other, cwd) }()
+			time.Sleep(time.Millisecond)
+			e.mu.Unlock()
+			deleteErr, selectErr := <-removed, <-selected
+			if deleteErr == nil && selectErr == nil {
+				t.Fatal("selection accepted the path deleted by concurrent operation")
+			}
+			if selectErr == nil {
+				if _, err = os.Stat(e.Snapshot("panel").Current.CWD); err != nil {
+					t.Fatal("successful selection references missing directory")
+				}
 			}
 		})
 	}

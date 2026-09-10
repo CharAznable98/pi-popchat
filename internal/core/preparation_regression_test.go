@@ -175,3 +175,68 @@ func TestDraftPreparationRecoveryAfterRestart(t *testing.T) {
 		t.Fatalf("persisted preparation failure not recovered: %+v", s)
 	}
 }
+
+type historyStartupClient struct {
+	*acceptanceClient
+	historyErr error
+	closed     atomic.Bool
+}
+
+func (c *historyStartupClient) ReadHistory(context.Context) ([]map[string]any, error) {
+	return nil, c.historyErr
+}
+func (c *historyStartupClient) Request(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+	if c.closed.Load() {
+		return nil, errors.New("fixture client closed")
+	}
+	return c.acceptanceClient.Request(ctx, cmd)
+}
+func (c *historyStartupClient) Close() error { c.closed.Store(true); return c.acceptanceClient.Close() }
+
+type historyStartupFactory struct {
+	attempts atomic.Int32
+	clients  []*historyStartupClient
+}
+
+func (f *historyStartupFactory) Start(_ context.Context, cfg agent.Config) (agent.Client, error) {
+	index := int(f.attempts.Add(1)) - 1
+	if index >= len(f.clients) {
+		return nil, errors.New("unexpected startup")
+	}
+	c := f.clients[index]
+	c.cfg = cfg
+	return c, nil
+}
+func TestPrepareRestartsClientAfterHistoryInitializationFailure(t *testing.T) {
+	e, _ := acceptanceEngine(t)
+	makeClient := func(err error) *historyStartupClient {
+		return &historyStartupClient{acceptanceClient: &acceptanceClient{events: make(chan map[string]any, 256), calls: make(chan map[string]any, 256)}, historyErr: err}
+	}
+	failed := makeClient(errors.New("fixture corrupt history"))
+	healthy := makeClient(nil)
+	factory := &historyStartupFactory{clients: []*historyStartupClient{failed, healthy}}
+	e.factory = factory
+	sid, err := e.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Prepare(sid); err == nil {
+		t.Fatal("history error was ignored")
+	}
+	if !failed.closed.Load() {
+		t.Fatal("failed client not closed")
+	}
+	if err = e.Prepare(sid); err != nil {
+		t.Fatal(err)
+	}
+	if factory.attempts.Load() != 2 {
+		t.Fatal("prepare reused closed client instead of restarting")
+	}
+	if s := e.Snapshot("main").Current; s.Status != "idle" || s.Error != "" {
+		t.Fatal("healthy restart did not clear preparation failure")
+	}
+	if err = e.Send(sid, "fixture", "first", nil); err != nil {
+		t.Fatal(err)
+	}
+	acceptanceCall(t, healthy.acceptanceClient, "prompt")
+}

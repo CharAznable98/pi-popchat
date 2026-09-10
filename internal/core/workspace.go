@@ -8,10 +8,10 @@ import (
 	"strings"
 )
 
-// Old records predate explicit ownership. Only their exact default path counts.
-// A user-selected directory never acquires ownership by matching that path.
+// Only explicit ownership authorizes removal. Legacy paths cannot distinguish
+// an application default from a user choosing that same directory.
 func (e *Engine) managedWorkspaceLocked(s *Session) bool {
-	return s.CWDSource != "user" && s.CWD == filepath.Join(e.store.Root, "workspaces", s.ID) && filepath.Base(s.ID) == s.ID && s.ID != "." && s.ID != ".."
+	return s.CWDSource == "managed" && s.CWD == filepath.Join(e.store.Root, "workspaces", s.ID) && filepath.Base(s.ID) == s.ID && s.ID != "." && s.ID != ".."
 }
 
 func (e *Engine) validateWorkspaceRemovalLocked(s *Session) error {

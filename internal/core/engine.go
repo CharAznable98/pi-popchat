@@ -427,6 +427,13 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 					}
 				}
 				if readErr != nil {
+					// Invalidate before closing: queued preparations must start a fresh
+					// client, and events from this failed initialization must be ignored.
+					e.mu.Lock()
+					if e.runtimes[sid] == r && r.client == c {
+						r.client = nil
+					}
+					e.mu.Unlock()
 					c.Close()
 					return nil, readErr
 				}
@@ -802,11 +809,14 @@ func (e *Engine) Pin(sid string, pin bool) error {
 	return e.saveLocked(s)
 }
 func (e *Engine) SetCWD(sid, cwd string) error {
+	e.mu.Lock()
+	// Validate under the deletion lock so a successful choice cannot refer to
+	// a workspace removed after validation but before updating the session.
 	info, err := os.Stat(cwd)
 	if err != nil || !info.IsDir() {
+		e.mu.Unlock()
 		return errors.New("请选择有效文件夹")
 	}
-	e.mu.Lock()
 	s := e.sessions[sid]
 	if s == nil || len(s.Messages) > 0 || busy(s.Status) {
 		e.mu.Unlock()
@@ -823,7 +833,10 @@ func (e *Engine) SetCWD(sid, cwd string) error {
 	err = e.saveLocked(s)
 	e.mu.Unlock()
 	if client != nil {
-		return client.Close()
+		closeErr := client.Close()
+		if err == nil {
+			err = closeErr
+		}
 	}
 	return err
 }

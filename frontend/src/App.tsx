@@ -45,11 +45,11 @@ export function App() {
     followOutput = useRef(true),
     fileInput = useRef<HTMLInputElement>(null),
     sendLock = useRef(false),
-    pendingSend = useRef<{
+    pendingSends = useRef(new Map<string, {
       id: string;
       text: string;
       attachments: Attachment[];
-    } | null>(null),
+    }>()),
     draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     localDrafts = useRef(
       new Map<
@@ -80,7 +80,6 @@ export function App() {
       attachmentRef.current = local?.attachments ?? c?.draftAttachments ?? [];
       setAttachments(attachmentRef.current);
       setConflict(false);
-      pendingSend.current = null;
       setTimeout(() => input.current?.focus(), 0);
     } else if (c && !dirty.current) {
       draft.current = c.draft || "";
@@ -251,14 +250,14 @@ export function App() {
     if (draftTimer.current) clearTimeout(draftTimer.current);
     const content = draft.current;
     const files = attachmentRef.current;
-    const candidate = pendingSend.current;
-    const transaction: NonNullable<typeof pendingSend.current> =
+    const candidate = pendingSends.current.get(sendingSession);
+    const transaction =
       candidate &&
       candidate.text === content &&
       JSON.stringify(candidate.attachments) === JSON.stringify(files)
         ? candidate
         : { id: crypto.randomUUID(), text: content, attachments: files };
-    pendingSend.current = transaction;
+    pendingSends.current.set(sendingSession, transaction);
     try {
       if (persistLock.current) await persistLock.current;
       // Even an already saved draft belongs to this pending submission. Keep
@@ -305,7 +304,9 @@ export function App() {
           JSON.stringify(local.attachments) === JSON.stringify(transaction.attachments)) {
         localDrafts.current.delete(sendingSession);
       }
-      pendingSend.current = null;
+      if (pendingSends.current.get(sendingSession) === transaction) {
+        pendingSends.current.delete(sendingSession);
+      }
     } catch (error) {
       if (String(error).includes("另一窗口已更新或发送草稿")) {
         if (sessionId.current === sendingSession) setConflict(true);

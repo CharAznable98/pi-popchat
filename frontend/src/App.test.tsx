@@ -289,3 +289,33 @@ it("已保存草稿发送中切换会话，成功后不再恢复已经发送的�
   await act(async () => mock.listener());
   expect((input as HTMLTextAreaElement).value).toBe("");
 });
+
+it("发送响应丢失后切换会话，返回重试仍使用原消息 ID", async () => {
+  const saved = state(); saved.current!.draft = "可能已执行的请求";
+  mock.snapshot.mockResolvedValue(saved);
+  await setup();
+  mock.action.mockRejectedValueOnce(new Error("桥接响应丢失"));
+  fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+  await screen.findByText("Error: 桥接响应丢失");
+  const first = mock.action.mock.calls.find(c => c[0] === "send")![1];
+  const other = state(2); other.currentId = "b"; other.current!.id = "b";
+  mock.snapshot.mockResolvedValue(other);
+  await act(async () => mock.listener());
+  const submitted = state(3); submitted.current!.draftRevision = 1;
+  mock.snapshot.mockResolvedValue(submitted);
+  await act(async () => mock.listener());
+  // Simulate the stale draft save rejection and explicit conflict resolution.
+  mock.action.mockRejectedValueOnce(new Error("另一窗口已更新草稿"));
+  fireEvent.change(screen.getByRole("textbox", { name: "消息" }), { target: { value: "可能已执行的请求" } });
+  await screen.findByRole("button", { name: "保留当前输入" });
+  const retained = state(4); retained.current!.draft = "可能已执行的请求"; retained.current!.draftRevision = 2;
+  mock.action.mockResolvedValueOnce(retained);
+  fireEvent.click(screen.getByRole("button", { name: "保留当前输入" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "保留当前输入" })).toBeNull());
+  mock.action.mockResolvedValueOnce(state(5));
+  fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+  await waitFor(() => expect(mock.action.mock.calls.filter(c => c[0] === "send")).toHaveLength(2));
+  const retry = mock.action.mock.calls.filter(c => c[0] === "send")[1][1];
+  expect(retry.clientMessageId).toBe(first.clientMessageId);
+  expect(retry.id).toBe("a");
+});

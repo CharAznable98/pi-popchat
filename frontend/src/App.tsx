@@ -244,6 +244,7 @@ export function App() {
       return;
     const sendingSession = current.id;
     const sendingRevision = draftRevision.current;
+    const sendingBase = base.current;
     followOutput.current = true;
     sendLock.current = true;
     setSending(true);
@@ -260,6 +261,19 @@ export function App() {
     pendingSend.current = transaction;
     try {
       if (persistLock.current) await persistLock.current;
+      // Even an already saved draft belongs to this pending submission. Keep
+      // it locally until success, so notifications and conflict refreshes cannot
+      // replace its text or attachments with another window's draft.
+      const stillSelected = sessionId.current === sendingSession;
+      if (!localDrafts.current.has(sendingSession)) {
+        localDrafts.current.set(sendingSession, {
+          text: transaction.text,
+          attachments: transaction.attachments,
+          base: stillSelected ? base.current : sendingBase,
+          revision: stillSelected ? draftRevision.current : sendingRevision,
+        });
+      }
+      if (stillSelected) dirty.current = true;
       const result = await act("send", {
         text: transaction.text,
         attachments: transaction.attachments,
@@ -286,10 +300,15 @@ export function App() {
         localDrafts.current.delete(current.id);
         setConflict(false);
       }
+      const local = localDrafts.current.get(sendingSession);
+      if (local?.text === transaction.text &&
+          JSON.stringify(local.attachments) === JSON.stringify(transaction.attachments)) {
+        localDrafts.current.delete(sendingSession);
+      }
       pendingSend.current = null;
     } catch (error) {
       if (String(error).includes("另一窗口已更新或发送草稿")) {
-        setConflict(true);
+        if (sessionId.current === sendingSession) setConflict(true);
         void refresh();
       }
     } finally {

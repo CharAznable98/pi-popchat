@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -241,6 +242,83 @@ func TestDirectorySelectionAndDeletionSerialize(t *testing.T) {
 			if selectErr == nil {
 				if _, err = os.Stat(e.Snapshot("panel").Current.CWD); err != nil {
 					t.Fatal("successful selection references missing directory")
+				}
+			}
+		})
+	}
+}
+
+func TestWorkspaceDeletionRecognizesCaseAliases(t *testing.T) {
+	for _, relation := range []string{"same", "ancestor", "descendant", "sibling"} {
+		t.Run(relation, func(t *testing.T) {
+			e, _ := acceptanceEngine(t)
+			sid, err := e.NewSession("main", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			cwd := e.Snapshot("main").Current.CWD
+			if err = os.MkdirAll(cwd, 0700); err != nil {
+				t.Fatal(err)
+			}
+			file := filepath.Join(cwd, "fixture.txt")
+			if err = os.WriteFile(file, []byte("fixture"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			selected := cwd
+			switch relation {
+			case "ancestor":
+				selected = filepath.Dir(cwd)
+			case "descendant":
+				selected = filepath.Join(cwd, "nested")
+			case "sibling":
+				selected = cwd + "-sibling"
+			}
+			if err = os.MkdirAll(selected, 0700); err != nil {
+				t.Fatal(err)
+			}
+			alias := strings.ToUpper(selected)
+			originalInfo, err := os.Stat(selected)
+			if err != nil {
+				t.Fatal(err)
+			}
+			aliasInfo, err := os.Stat(alias)
+			if os.IsNotExist(err) {
+				t.Skip("filesystem is case-sensitive")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !os.SameFile(originalInfo, aliasInfo) {
+				t.Fatal("fixture is not a filesystem alias")
+			}
+			e.mu.Lock()
+			e.sessions[sid].DraftOnly = false
+			err = e.saveLocked(e.sessions[sid])
+			e.mu.Unlock()
+			if err != nil {
+				t.Fatal(err)
+			}
+			other, err := e.NewSession("panel", alias)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = e.DeleteWithWorkspace(sid, true)
+			if relation == "sibling" {
+				if err != nil {
+					t.Fatal("unrelated sibling was blocked:", err)
+				}
+				if _, err = os.Stat(alias); err != nil {
+					t.Fatal("sibling directory removed")
+				}
+			} else {
+				if err == nil {
+					t.Error("case alias bypassed workspace protection")
+				}
+				if _, err = os.Stat(file); err != nil {
+					t.Error("shared work file was deleted")
+				}
+				if e.CurrentID("main") != sid || e.CurrentID("panel") != other {
+					t.Error("rejected deletion changed selections")
 				}
 			}
 		})

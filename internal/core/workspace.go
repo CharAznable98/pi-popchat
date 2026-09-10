@@ -47,15 +47,44 @@ func (e *Engine) validateWorkspaceRemovalLocked(s *Session) error {
 		if err != nil {
 			path = filepath.Clean(other.CWD)
 		}
-		if workspaceContains(s.CWD, path) || workspaceContains(path, s.CWD) {
-			return fmt.Errorf("工作目录仍被其他会话或草稿使用，请先保留目录：%s", other.Title)
+		for _, pair := range [][2]string{{s.CWD, path}, {path, s.CWD}} {
+			contains, err := workspaceContains(pair[0], pair[1])
+			if err != nil {
+				return fmt.Errorf("无法确认会话工作目录是否重叠，请保留目录：%s：%w", other.Title, err)
+			}
+			if contains {
+				return fmt.Errorf("工作目录仍被其他会话或草稿使用，请先保留目录：%s", other.Title)
+			}
 		}
 	}
 	return nil
 }
 
-// Overlapping work trees share files in either containment direction.
-func workspaceContains(parent, child string) bool {
+// Keep lexical containment for missing paths, then compare directory identity
+// at every ancestor. EvalSymlinks alone does not resolve case aliases on macOS.
+func workspaceContains(parent, child string) (bool, error) {
 	rel, err := filepath.Rel(parent, child)
-	return err == nil && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	if err == nil && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return true, nil
+	}
+	parentInfo, err := os.Stat(parent)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	for current := filepath.Clean(child); ; current = filepath.Dir(current) {
+		info, err := os.Stat(current)
+		if err == nil {
+			if os.SameFile(parentInfo, info) {
+				return true, nil
+			}
+		} else if !os.IsNotExist(err) {
+			return false, err
+		}
+		if filepath.Dir(current) == current {
+			return false, nil
+		}
+	}
 }

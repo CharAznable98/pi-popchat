@@ -287,14 +287,16 @@ func (e *Engine) ActiveCount() int {
 	}
 	return n
 }
-func (e *Engine) fail(sid string, err error) {
+func (e *Engine) failPreparation(sid string, wasDraft bool, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.closing {
 		return
 	}
 	s := e.sessions[sid]
-	if s == nil {
+	// Once submitted, delivery owns execution failures. An earlier metadata
+	// preparation must not pause its queue or overwrite its execution state.
+	if s == nil || (wasDraft && !s.DraftOnly) {
 		return
 	}
 	s.Status = "failed"
@@ -440,18 +442,22 @@ func (e *Engine) loadModels(ctx context.Context, sid string, c agent.Client) err
 // Prepare restores a session if necessary and otherwise reuses its Agent and
 // metadata. Window visibility must not force model discovery on a live client.
 func (e *Engine) Prepare(sid string) error {
-	c, err := e.ensure(sid)
-	if err != nil && c == nil {
-		e.fail(sid, err)
-	}
-	return err
+	return e.prepareMetadata(sid, false)
 }
 
 // Refresh explicitly updates the model catalog, including on an existing client.
 func (e *Engine) Refresh(sid string) error {
-	c, err := e.ensureMetadata(sid, true)
+	return e.prepareMetadata(sid, true)
+}
+
+func (e *Engine) prepareMetadata(sid string, refresh bool) error {
+	e.mu.Lock()
+	s := e.sessions[sid]
+	wasDraft := s != nil && s.DraftOnly
+	e.mu.Unlock()
+	c, err := e.ensureMetadata(sid, refresh)
 	if err != nil && c == nil {
-		e.fail(sid, err)
+		e.failPreparation(sid, wasDraft, err)
 	}
 	return err
 }

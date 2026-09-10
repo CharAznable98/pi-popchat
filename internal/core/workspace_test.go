@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -119,5 +120,50 @@ func TestWorkspaceDeletionDatabaseFailureRestoresFiles(t *testing.T) {
 	}
 	if err := e.DeleteWithWorkspace(sid, true); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDeleteWorkspaceRejectsAncestorReference(t *testing.T) {
+	for _, alias := range []bool{false, true} {
+		t.Run(fmt.Sprint("symlink=", alias), func(t *testing.T) {
+			e, _ := acceptanceEngine(t)
+			sid, _ := e.NewSession("main", "")
+			path := e.Snapshot("main").Current.CWD
+			if err := os.MkdirAll(path, 0700); err != nil {
+				t.Fatal(err)
+			}
+			file := filepath.Join(path, "shared.txt")
+			if err := os.WriteFile(file, []byte("fixture"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			e.mu.Lock()
+			e.sessions[sid].DraftOnly = false
+			err := e.saveLocked(e.sessions[sid])
+			e.mu.Unlock()
+			if err != nil {
+				t.Fatal(err)
+			}
+			ancestor := filepath.Dir(path)
+			if alias {
+				link := filepath.Join(t.TempDir(), "workspaces-link")
+				if err := os.Symlink(ancestor, link); err != nil {
+					t.Fatal(err)
+				}
+				ancestor = link
+			}
+			other, err := e.NewSession("panel", ancestor)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := e.DeleteWithWorkspace(sid, true); err == nil {
+				t.Error("ancestor workspace reference allowed deletion")
+			}
+			if _, err := os.Stat(file); err != nil {
+				t.Error("another workspace lost its file:", err)
+			}
+			if e.CurrentID("main") != sid || e.CurrentID("panel") != other {
+				t.Error("rejected deletion changed selections")
+			}
+		})
 	}
 }

@@ -47,10 +47,15 @@ func (e *Engine) validateWorkspaceRemovalLocked(s *Session) error {
 		if err != nil {
 			path = filepath.Clean(other.CWD)
 		}
-		rel, err := filepath.Rel(s.CWD, path)
-		if err == nil && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if workspaceContains(s.CWD, path) || workspaceContains(path, s.CWD) {
 			return fmt.Errorf("工作目录仍被其他会话或草稿使用，请先保留目录：%s", other.Title)
 		}
 	}
 	return nil
+}
+
+// Overlapping work trees share files in either containment direction.
+func workspaceContains(parent, child string) bool {
+	rel, err := filepath.Rel(parent, child)
+	return err == nil && rel != ".." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

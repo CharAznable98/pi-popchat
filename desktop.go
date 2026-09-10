@@ -293,7 +293,7 @@ func (d *Desktop) applyVisibility(view string) {
 }
 
 func (d *Desktop) togglePanel() {
-	target := activeWindowScreen()
+	target := mouseScreen()
 	current, _ := d.panel.GetScreen()
 	if d.panel.IsVisible() && (target == nil || (current != nil && current.ID == target.ID)) {
 		d.hidePanel()

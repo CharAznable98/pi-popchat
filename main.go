@@ -37,7 +37,12 @@ func main() {
 		log.Fatal(err)
 	}
 	d := &Desktop{done: make(chan struct{}), mainWanted: true}
-	app := application.New(application.Options{Name: "Pi Popchat", Description: "桌面 Agent 对话", Assets: application.AssetOptions{Handler: application.AssetFileServerFS(frontend)}, Services: []application.Service{application.NewService(d)}, Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false}, SingleInstance: &application.SingleInstanceOptions{UniqueID: "app.pi-popchat.desktop", OnSecondInstanceLaunch: func(_ application.SecondInstanceData) {
+	instanceID := "app.pi-popchat.desktop"
+	if probeMode {
+		// Isolated native acceptance must not reopen an existing user instance.
+		instanceID += ".native-probe"
+	}
+	app := application.New(application.Options{Name: "Pi Popchat", Description: "桌面 Agent 对话", Assets: application.AssetOptions{Handler: application.AssetFileServerFS(frontend)}, Services: []application.Service{application.NewService(d)}, Mac: application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false}, SingleInstance: &application.SingleInstanceOptions{UniqueID: instanceID, OnSecondInstanceLaunch: func(_ application.SecondInstanceData) {
 		if d.main != nil {
 			d.showMain()
 		}

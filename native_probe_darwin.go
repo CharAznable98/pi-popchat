@@ -102,6 +102,7 @@ func nativeProbeMark(label string) {
 // The caller must skip normal startup workers, notifications and shortcuts.
 // It returns an exit code; call app.Quit afterwards and exit after app.Run.
 func runDesktopProbe(d *Desktop) int {
+	defer preserveProbeCursor()()
 	type result struct {
 		Name   string `json:"name"`
 		Pass   bool   `json:"pass"`
@@ -132,6 +133,39 @@ func runDesktopProbe(d *Desktop) int {
 	record("isolated-session", err == nil, root)
 	screens := nativeScreens()
 	record("multiple-native-screens", len(screens) >= 2, fmt.Sprintf("count=%d", len(screens)))
+	// The foreground window deliberately stays on another display. Exercise
+	// the same callback registered with GlobalShortcut, including activation.
+	for i, target := range screens {
+		d.hidePanel()
+		d.main.SetScreen(screens[(i+1)%len(screens)])
+		d.showMain()
+		wait(func() bool { return d.main.IsFocused() })
+		for _, point := range [][2]float64{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0.5, 0.5}} {
+			moved := moveProbeCursor(target, point[0], point[1])
+			selected := wait(func() bool { s := mouseScreen(); return s != nil && s.ID == target.ID })
+			record(fmt.Sprintf("mouse-select-%s-%.1f-%.1f", target.ID, point[0], point[1]), moved && selected, "full display frame, including edges; AppKit points")
+		}
+		d.togglePanel()
+		record("mouse-panel-centered-"+target.ID, wait(func() bool {
+			s, err := d.panel.GetScreen()
+			return err == nil && s != nil && s.ID == target.ID && d.panel.IsVisible() && d.panel.IsFocused() && panelCentered(d.panel)
+		}), "foreground main window is on another screen when multiple screens are available")
+		if len(screens) > 1 {
+			other := screens[(i+1)%len(screens)]
+			moveProbeCursor(other, 0.5, 0.5)
+			wait(func() bool { s := mouseScreen(); return s != nil && s.ID == other.ID })
+			time.Sleep(150 * time.Millisecond)
+			s, _ := d.panel.GetScreen()
+			record("mouse-motion-does-not-move-panel-"+target.ID, s != nil && s.ID == target.ID && d.panel.IsVisible(), "cursor motion alone must not move the panel")
+			d.togglePanel()
+			record("mouse-cross-screen-toggle-"+target.ID, wait(func() bool {
+				s, err := d.panel.GetScreen()
+				return err == nil && s != nil && s.ID == other.ID && d.panel.IsVisible() && d.panel.IsFocused() && panelCentered(d.panel)
+			}), "visible panel follows the next explicit shortcut invocation")
+		}
+		d.togglePanel()
+		record("mouse-same-screen-hides-"+target.ID, wait(func() bool { return !d.panel.IsVisible() }), "")
+	}
 	for screenIndex, screen := range screens {
 		d.hidePanel()
 		d.main.SetScreen(screen)
@@ -221,6 +255,8 @@ func runDesktopProbe(d *Desktop) int {
 				selectedID = selected.ID
 			}
 			record("foreign-active-window-"+target.ID, foreground && matched && selectedID == target.ID, fmt.Sprintf("expected=%s actual=%s main=%s foreignForeground=%v matched=%v frontPID=%d fixturePID=%d", target.ID, selectedID, screens[0].ID, foreground, matched, frontmostPID(), fixture.Process.Pid))
+			moveProbeCursor(target, 0.5, 0.5)
+			wait(func() bool { s := mouseScreen(); return s != nil && s.ID == target.ID })
 			d.togglePanel()
 			placed := wait(func() bool {
 				screen, err := d.panel.GetScreen()
@@ -252,6 +288,8 @@ func runDesktopProbe(d *Desktop) int {
 			selectedID = selected.ID
 		}
 		record("active-panel-screen-differs-from-main", keyPanel && matched && selectedID == screens[1].ID, fmt.Sprintf("expected=%s actual=%s main=%s", screens[1].ID, selectedID, screens[0].ID))
+		moveProbeCursor(screens[1], 0.5, 0.5)
+		wait(func() bool { s := mouseScreen(); return s != nil && s.ID == screens[1].ID })
 		d.togglePanel()
 		record("same-screen-toggle-with-main-on-other-display", wait(func() bool { return !d.panel.IsVisible() }), "key panel must hide rather than jump to main window display")
 	}
@@ -264,6 +302,8 @@ func runDesktopProbe(d *Desktop) int {
 		d.main.SetScreen(screens[1])
 		d.showMain()
 		wait(func() bool { s, ok := activeWindowSelection(); return ok && s != nil && s.ID == screens[1].ID })
+		moveProbeCursor(screens[1], 0.5, 0.5)
+		wait(func() bool { s := mouseScreen(); return s != nil && s.ID == screens[1].ID })
 		d.togglePanel()
 		record("visible-panel-moves", wait(func() bool {
 			s, e := d.panel.GetScreen()
@@ -320,7 +360,9 @@ func runDesktopProbe(d *Desktop) int {
 			})
 			record("foreign-fullscreen-ready-"+target.ID, ready, "separate AppKit process completed native fullscreen transition")
 			if ready {
-				selected := activeWindowScreen()
+				moveProbeCursor(target, 0.5, 0.5)
+				wait(func() bool { s := mouseScreen(); return s != nil && s.ID == target.ID })
+				selected := mouseScreen()
 				selectedID := "none"
 				if selected != nil {
 					selectedID = selected.ID

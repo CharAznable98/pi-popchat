@@ -16,7 +16,7 @@ Pi Popchat 是一款 macOS 桌面 Agent 客户端。阅读网页、查看文件�
   <img src="docs/images/floating-chat.jpg" width="520" alt="浮窗中的示例对话：将个人作品集想法拆成可以开始的小步骤，下方可输入消息和选择模型" />
 </p>
 
-按 **⌥Space**，浮窗会出现在当前活动窗口所在的显示器上，也支持在其他应用的全屏界面上方使用。按 **Esc** 或再次按快捷键收起，任务仍可继续执行；点击浮窗外部不会自动收起。
+按 **⌥Space**，浮窗会居中出现在鼠标所在的显示器上，也支持在其他应用的全屏界面上方使用。按 **Esc** 收起；鼠标与浮窗同屏时再次按快捷键收起，鼠标在另一屏时则把浮窗移过去。任务仍可继续执行；点击浮窗外部不会自动收起。
 
 临时的问题不必挤进同一段长对话：浮窗收起超过 **30 分钟**，且当前没有执行或等待回答的任务时，下次唤起会开启新会话。之前的内容依然保留在历史中。
 
@@ -48,7 +48,7 @@ Pi Popchat 会检测本机的 Pi；未找到时会提供安装指引，也可在
 
 ### 2. 安装 Pi Popchat
 
-在 [Releases](https://github.com/CharAznable98/pi-popchat/releases/latest) 下载 `Pi-Popchat-v0.1.0-macOS-arm64.zip`，解压后将 `Pi Popchat.app` 拖入“应用程序”文件夹，再打开应用。
+在 [Releases](https://github.com/CharAznable98/pi-popchat/releases/latest) 下载 `Pi-Popchat-v0.1.1-macOS-arm64.zip`，解压后将 `Pi Popchat.app` 拖入“应用程序”文件夹，再打开应用。
 
 当前提供 **macOS 15 / Apple Silicon** 构建。安装包使用 ad-hoc 签名，尚未使用 Developer ID 签名或通过 Apple 公证，macOS 可能阻止直接打开；请确认下载来源，也可以选择从源码在本机构建。Intel Mac 和其他 macOS 版本暂未验证。
 

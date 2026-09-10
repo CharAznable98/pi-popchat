@@ -41,6 +41,9 @@ type Command struct {
 	Source      string `json:"source"`
 }
 type Session struct {
+	DraftOnly        bool         `json:"draftOnly"`
+	CWDSource        string       `json:"cwdSource,omitempty"`
+	ManagedWorkspace bool         `json:"managedWorkspace"`
 	DraftRevision    uint64       `json:"draftRevision"`
 	DraftAttachments []Attachment `json:"draftAttachments"`
 	ID               string       `json:"id"`

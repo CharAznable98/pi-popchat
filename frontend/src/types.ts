@@ -22,6 +22,8 @@ export type Interaction = {
   defaultValue?: string;
 };
 export type Session = {
+  draftOnly?: boolean;
+  managedWorkspace?: boolean;
   id: string;
   title: string;
   pinned: boolean;

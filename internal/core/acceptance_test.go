@@ -157,11 +157,13 @@ func acceptanceText(c *acceptanceClient, text, reason string) {
 }
 
 func TestAcceptancePanelTimeoutAndIndependentSelection(t *testing.T) {
-	e, _ := acceptanceEngine(t)
+	e, f := acceptanceEngine(t)
 	if err := e.PanelShown(); err != nil {
 		t.Fatal(err)
 	}
-	panel := e.CurrentID("panel")
+	panel, client := acceptanceStart(t, e, f, "panel")
+	client.emit("agent_settled", nil)
+	acceptanceEventually(t, func() bool { return e.Snapshot("panel").Current.Status == "idle" }, "panel did not settle")
 	main, err := e.NewSession("main", "")
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +187,7 @@ func TestAcceptancePanelTimeoutAndIndependentSelection(t *testing.T) {
 	if e.CurrentID("panel") == panel {
 		t.Fatal("expired panel not replaced")
 	}
-	if len(e.Snapshot("main").Sessions) != 3 {
+	if len(e.Snapshot("main").Sessions) != 1 {
 		t.Fatal("expired history disappeared")
 	}
 	if err = e.Transfer(); err != nil {

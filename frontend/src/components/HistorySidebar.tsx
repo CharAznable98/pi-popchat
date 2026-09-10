@@ -26,9 +26,9 @@ export function HistorySidebar({
   onSettings: () => void;
   run: UIAction;
   navigate: UIAction;
-  onDelete: (id: string) => Promise<unknown>;
+  onDelete: (id: string, removeWorkspace?: boolean) => Promise<unknown>;
 }) {
-  const [deleting, setDeleting] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState<Session | null>(null);
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -96,7 +96,7 @@ export function HistorySidebar({
                   className="danger"
                   disabled={isBusy(s.status)}
                   onClick={() => {
-                    setDeleting({ id: s.id, title: s.title });
+                    setDeleting(s);
                     setMenu("");
                   }}
                 >
@@ -114,8 +114,8 @@ export function HistorySidebar({
         ⚙ 设置 <span>{shortcut?.replace("Alt", "⌥")}</span>
       </button>
       {deleting && (
-        <DeleteSessionDialog title={deleting.title}
-          onDelete={() => onDelete(deleting.id)}
+        <DeleteSessionDialog title={deleting.title} workspace={deleting.managedWorkspace ? deleting.cwd : undefined}
+          onDelete={(removeWorkspace) => onDelete(deleting.id, removeWorkspace)}
           onClose={() => setDeleting(null)} />
       )}
     </aside>

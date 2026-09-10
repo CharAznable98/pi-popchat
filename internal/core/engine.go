@@ -57,6 +57,13 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 	if err != nil {
 		return nil, err
 	}
+	draft, err := store.LoadDraft()
+	if err != nil {
+		return nil, err
+	}
+	if draft != nil {
+		all = append(all, draft)
+	}
 	e := &Engine{store: store, factory: factory, executable: executable, sessions: map[string]*Session{}, deliveries: map[string]delivery{}, committed: map[string][]byte{}, runtimes: map[string]*runtime{}, selected: map[string]string{}, settings: Settings{Shortcut: "Alt+Space"}, version: 1}
 	_ = store.Get("settings", &e.settings)
 	_ = store.Get("selected", &e.selected)
@@ -125,8 +132,12 @@ func (e *Engine) Snapshot(view string) Snapshot {
 		b, _ := json.Marshal(s)
 		var cp Session
 		_ = json.Unmarshal(b, &cp)
+		cp.ManagedWorkspace = e.managedWorkspaceLocked(s)
 		if cp.ID == v.CurrentID {
 			v.Current = &cp
+		}
+		if cp.DraftOnly {
+			continue
 		}
 		summary := cp
 		summary.Messages = []Message{}
@@ -153,12 +164,21 @@ func (e *Engine) newLocked(view, cwd string) (string, error) {
 	if e.closing {
 		return "", errors.New("应用正在退出")
 	}
-	sid := id()
-	if cwd == "" {
-		cwd = filepath.Join(e.store.Root, "workspaces", sid)
-		if err := os.MkdirAll(cwd, 0700); err != nil {
-			return "", err
+	for _, s := range e.sessions {
+		if s.DraftOnly {
+			e.selected[view] = s.ID
+			if err := e.store.Set("selected", e.selected); err != nil {
+				return "", err
+			}
+			e.changedLocked()
+			return s.ID, nil
 		}
+	}
+	sid := id()
+	source := "user"
+	if cwd == "" {
+		source = "managed"
+		cwd = filepath.Join(e.store.Root, "workspaces", sid)
 	} else {
 		a, err := filepath.Abs(cwd)
 		if err != nil {
@@ -170,7 +190,7 @@ func (e *Engine) newLocked(view, cwd string) (string, error) {
 		}
 		cwd = a
 	}
-	s := &Session{ID: sid, Title: "新对话", CWD: cwd, CreatedAt: now(), UpdatedAt: now(), Status: "idle", SessionFile: filepath.Join(e.store.Root, "sessions", sid, "session.jsonl")}
+	s := &Session{DraftOnly: true, CWDSource: source, ID: sid, Title: "新对话", CWD: cwd, CreatedAt: now(), UpdatedAt: now(), Status: "idle", SessionFile: filepath.Join(e.store.Root, "sessions", sid, "session.jsonl")}
 	normalize(s)
 	if err := e.saveLocked(s); err != nil {
 		return "", err
@@ -198,7 +218,7 @@ func (e *Engine) PanelShown() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	s := e.sessions[e.selected["panel"]]
-	if s == nil || (!e.hiddenAt.IsZero() && time.Since(e.hiddenAt) > 30*time.Minute && !busy(s.Status)) {
+	if s == nil || (!e.hiddenAt.IsZero() && time.Since(e.hiddenAt) > 30*time.Minute && !s.DraftOnly && !busy(s.Status)) {
 		_, err := e.newLocked("panel", "")
 		return err
 	}
@@ -279,7 +299,7 @@ func (e *Engine) fail(sid string, err error) {
 	}
 	s.Status = "failed"
 	s.Error = err.Error()
-	s.QueuePaused = true
+	s.QueuePaused = !s.DraftOnly
 	_ = e.saveLocked(s)
 }
 func (e *Engine) ensure(sid string) (agent.Client, error) {
@@ -317,10 +337,16 @@ func (e *Engine) ensureMetadata(sid string, refresh bool) (agent.Client, error) 
 		e.mu.Unlock()
 		return nil, errors.New("应用正在退出")
 	}
+	managed := e.managedWorkspaceLocked(s)
 	cfg := agent.Config{Executable: e.executable, CWD: s.CWD, SessionDir: filepath.Join(e.store.Root, "sessions", sid), SessionFile: s.SessionFile}
 	e.mu.Unlock()
 	if cfg.Executable == "" {
 		return nil, errors.New("未找到 Pi，请安装并配置后重新检测")
+	}
+	if managed {
+		if err := os.MkdirAll(cfg.CWD, 0700); err != nil {
+			return nil, err
+		}
 	}
 	if err := os.MkdirAll(cfg.SessionDir, 0700); err != nil {
 		return nil, err
@@ -430,6 +456,10 @@ func (e *Engine) Refresh(sid string) error {
 	return err
 }
 func (e *Engine) Send(sid, text, clientID string, attachments []Attachment) error {
+	return e.SendWithRevision(sid, text, clientID, attachments, nil)
+}
+
+func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Attachment, revision *uint64) error {
 	text = strings.TrimSpace(text)
 	if text == "" && len(attachments) == 0 {
 		return errors.New("请输入消息")
@@ -451,6 +481,10 @@ func (e *Engine) Send(sid, text, clientID string, attachments []Attachment) erro
 			e.mu.Unlock()
 			return nil
 		}
+	}
+	if revision != nil && s.DraftRevision != *revision {
+		e.mu.Unlock()
+		return errors.New("另一窗口已更新或发送草稿，请核对当前输入后重试")
 	}
 	var imageBytes int64
 	for _, a := range attachments {
@@ -475,6 +509,11 @@ func (e *Engine) Send(sid, text, clientID string, attachments []Attachment) erro
 	if m.Attachments == nil {
 		m.Attachments = []Attachment{}
 	}
+	if s.DraftOnly {
+		s.CreatedAt = now()
+		s.QueuePaused = false
+	}
+	s.DraftOnly = false
 	s.Draft = ""
 	s.DraftRevision++
 	s.DraftAttachments = []Attachment{}
@@ -726,6 +765,7 @@ func (e *Engine) SetCWD(sid, cwd string) error {
 		return errors.New("已有消息的会话不能更换工作目录，请新建会话")
 	}
 	s.CWD = cwd
+	s.CWDSource = "user"
 	r := e.runtimes[sid]
 	var client agent.Client
 	if r != nil {
@@ -739,7 +779,9 @@ func (e *Engine) SetCWD(sid, cwd string) error {
 	}
 	return err
 }
-func (e *Engine) Delete(sid string) error {
+func (e *Engine) Delete(sid string) error { return e.DeleteWithWorkspace(sid, false) }
+
+func (e *Engine) DeleteWithWorkspace(sid string, removeWorkspace bool) error {
 	e.mu.Lock()
 	s := e.sessions[sid]
 	if s == nil {
@@ -750,11 +792,48 @@ func (e *Engine) Delete(sid string) error {
 		e.mu.Unlock()
 		return errors.New("请先停止任务再删除会话")
 	}
+	staged := ""
+	if removeWorkspace {
+		if err := e.validateWorkspaceRemovalLocked(s); err != nil {
+			e.mu.Unlock()
+			return err
+		}
+		// Do not race a metadata startup that may still create this directory.
+		if r := e.runtimes[sid]; r != nil {
+			if !r.start.TryLock() {
+				e.mu.Unlock()
+				return errors.New("Agent 正在准备，请稍后重试删除")
+			}
+			defer r.start.Unlock()
+			if r.client != nil {
+				if err := r.client.Close(); err != nil {
+					e.mu.Unlock()
+					return err
+				}
+			}
+			delete(e.runtimes, sid)
+		}
+		// Move first, so a database failure can restore the complete directory.
+		staged = filepath.Join(e.store.Root, "workspaces", ".deleting-"+sid+"-"+id())
+		if err := os.Rename(s.CWD, staged); err != nil {
+			if !os.IsNotExist(err) {
+				e.mu.Unlock()
+				return fmt.Errorf("准备删除工作目录失败：%w", err)
+			}
+			staged = ""
+		}
+	}
 	if err := e.store.Delete(sid); err != nil {
+		if staged != "" {
+			if restoreErr := os.Rename(staged, s.CWD); restoreErr != nil {
+				err = fmt.Errorf("删除会话失败：%w；恢复目录失败，文件仍在 %s：%v", err, staged, restoreErr)
+			}
+		}
 		e.mu.Unlock()
 		return err
 	}
 	delete(e.sessions, sid)
+	delete(e.committed, sid)
 	r := e.runtimes[sid]
 	var client agent.Client
 	if r != nil {
@@ -770,7 +849,14 @@ func (e *Engine) Delete(sid string) error {
 	e.changedLocked()
 	e.mu.Unlock()
 	if client != nil {
-		return client.Close()
+		if err := client.Close(); err != nil {
+			return err
+		}
+	}
+	if staged != "" {
+		if err := os.RemoveAll(staged); err != nil {
+			return fmt.Errorf("会话已删除，但工作文件未完全清理，请在 %s 手动处理：%w", staged, err)
+		}
 	}
 	return nil
 }

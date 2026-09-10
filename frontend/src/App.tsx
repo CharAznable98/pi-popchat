@@ -243,6 +243,7 @@ export function App() {
     )
       return;
     const sendingSession = current.id;
+    const sendingRevision = draftRevision.current;
     followOutput.current = true;
     sendLock.current = true;
     setSending(true);
@@ -250,7 +251,7 @@ export function App() {
     const content = draft.current;
     const files = attachmentRef.current;
     const candidate = pendingSend.current;
-    const transaction =
+    const transaction: NonNullable<typeof pendingSend.current> =
       candidate &&
       candidate.text === content &&
       JSON.stringify(candidate.attachments) === JSON.stringify(files)
@@ -263,6 +264,7 @@ export function App() {
         text: transaction.text,
         attachments: transaction.attachments,
         clientMessageId: transaction.id,
+        expectedDraftRevision: sessionId.current === sendingSession ? draftRevision.current : sendingRevision,
         id: sendingSession,
       });
       if (sessionId.current === sendingSession) {
@@ -285,7 +287,11 @@ export function App() {
         setConflict(false);
       }
       pendingSend.current = null;
-    } catch {
+    } catch (error) {
+      if (String(error).includes("另一窗口已更新或发送草稿")) {
+        setConflict(true);
+        void refresh();
+      }
     } finally {
       sendLock.current = false;
       setSending(false);
@@ -476,7 +482,7 @@ export function App() {
           }}
           run={run}
           navigate={navigate}
-          onDelete={(id) => act("delete", { id })}
+          onDelete={(id, removeWorkspace) => act("delete", { id, ...(removeWorkspace ? { removeWorkspace: true } : {}) })}
         />
       )}
       <main className="conversation">

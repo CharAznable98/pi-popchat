@@ -210,3 +210,26 @@ it("模型查询失败显示可重试错误，不误报没有模型", async () =
     }),
   );
 });
+
+it("共享草稿发送冲突保留输入，确认后按新版本重试并复用消息ID", async () => {
+  const s = state(); s.current!.draftOnly = true; s.current!.draftRevision = 0;
+  mock.snapshot.mockResolvedValue(s);
+  const input = await setup();
+  fireEvent.change(input, { target: { value: "本窗口输入" } });
+  const remote = state(2); remote.current!.draftOnly = true; remote.current!.draft = "另一窗口输入"; remote.current!.draftRevision = 1;
+  mock.snapshot.mockResolvedValue(remote);
+  mock.action.mockRejectedValueOnce(new Error("另一窗口已更新或发送草稿，请核对当前输入后重试"));
+  fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+  await screen.findByRole("button", { name: "保留当前输入" });
+  await act(async () => mock.listener());
+  expect((input as HTMLTextAreaElement).value).toBe("本窗口输入");
+  const saved = state(3); saved.current!.draftOnly = true; saved.current!.draft = "本窗口输入"; saved.current!.draftRevision = 2;
+  mock.action.mockResolvedValueOnce(saved);
+  fireEvent.click(screen.getByRole("button", { name: "保留当前输入" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "保留当前输入" })).toBeNull());
+  const sent = state(4); sent.current!.draftRevision = 3; mock.action.mockResolvedValueOnce(sent);
+  fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+  await waitFor(() => expect(mock.action.mock.calls.filter(c => c[0] === "send")).toHaveLength(2));
+  const sends = mock.action.mock.calls.filter(c => c[0] === "send");
+  expect(sends[1][1]).toEqual(expect.objectContaining({id: "a", text: "本窗口输入", expectedDraftRevision: 2, clientMessageId: sends[0][1].clientMessageId}));
+});

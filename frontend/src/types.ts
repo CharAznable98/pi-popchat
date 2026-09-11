@@ -6,6 +6,7 @@ export type Attachment = {
   preview?: string;
 };
 export type Message = {
+  steps?: ProcessStep[];
   id: string;
   role: string;
   text: string;
@@ -22,6 +23,7 @@ export type Interaction = {
   defaultValue?: string;
 };
 export type Session = {
+  titleWritable?: boolean;
   draftOnly?: boolean;
   managedWorkspace?: boolean;
   id: string;
@@ -47,12 +49,17 @@ export type Session = {
   commands: { name: string; description: string; source: string }[];
   searchableText?: string;
 };
+export type SelectionConfig = {
+  enabled: boolean;
+  buttons: { id: string; name: string; template: string }[];
+};
 export type Snapshot = {
+  selectionPermission?: boolean;
   version: number;
   currentId: string;
   sessions: Session[];
   current: Session | null;
-  settings: { shortcut: string; piPath: string };
+  settings: { shortcut: string; piPath: string; selection?: SelectionConfig };
   environment: {
     piPath: string;
     version: string;
@@ -66,3 +73,12 @@ export type UIAction = (
   action: string,
   payload?: Record<string, unknown>,
 ) => void;
+
+export type ProcessStep = {
+  id: string;
+  action: string;
+  object?: string;
+  status: string;
+  startedAt: string;
+  endedAt?: string;
+};

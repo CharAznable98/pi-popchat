@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>划词验收：独立选区复测</title>
+<style>
+body{max-width:800px;margin:48px auto;padding:0 24px;font:18px/1.7 system-ui,sans-serif;color:#202124;background:#fafafa}
+h1{font-size:26px}section{background:white;border:1px solid #ddd;padding:20px;margin:20px 0;border-radius:8px}
+.sample{font:24px/1.8 monospace;white-space:pre-wrap}pre{white-space:pre-wrap;overflow-wrap:anywhere;min-height:48px;background:#eee;padding:12px}
+small{color:#555}label{display:block}
+</style>
+<h1>划词验收：独立选区复测</h1>
+<p>请在真实 Chrome 中打开本文件，用鼠标拖选下面第一行。下方应同步显示选中文字，并增加鼠标抬起次数。</p>
+<p><small>此页仅验证浏览器选区，不显示工具条、不读取其他应用、不联网、不发送消息。全部为合成文本。</small></p>
+<section><strong>只读文本</strong><div class="sample" id="readonly">Synthetic selection</div></section>
+<section><strong>中文与多行文本</strong><div class="sample" id="multiline">你好，世界 🌏
+Second line</div></section>
+<section><strong>可编辑文本</strong><div class="sample" id="editable" contenteditable="true">Synthetic selection</div></section>
+<section aria-live="polite"><label>选区来源：<b id="source">无</b></label><label>鼠标抬起次数：<b id="ups">0</b></label><label>选区变化次数：<b id="changes">0</b></label><label>实际选中文字：</label><pre id="selected"></pre></section>
+<script>
+let ups=0,changes=0;
+function update(){
+ const s=window.getSelection();
+ const node=s?.anchorNode;
+ const element=node?.nodeType===Node.ELEMENT_NODE?node:node?.parentElement;
+ document.getElementById('source').textContent=element?.closest('.sample')?.id||'无／示例区外';
+ document.getElementById('selected').textContent=s?.toString()||'';
+}
+document.addEventListener('selectionchange',()=>{document.getElementById('changes').textContent=String(++changes);update()});
+document.addEventListener('mouseup',()=>{document.getElementById('ups').textContent=String(++ups);update()});
+</script>
+</html>

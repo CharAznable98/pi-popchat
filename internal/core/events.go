@@ -39,6 +39,14 @@ func (e *Engine) applyMetadata(sid, kind string, res map[string]any) {
 		if f := str(data["sessionFile"]); f != "" {
 			s.SessionFile = f
 		}
+		if r := e.runtimes[sid]; r == nil || sequenceNumber(res["_eventSequence"]) >= r.titleSequence {
+			e.refreshTitleFileLocked(s)
+			s.AgentTitle = str(data["sessionName"])
+			s.Title = s.AgentTitle
+			if s.Title == "" {
+				s.Title = fallbackTitle(s)
+			}
+		}
 		if m := obj(data["model"]); m != nil {
 			s.Model = str(m["id"])
 			s.Provider = str(m["provider"])
@@ -73,6 +81,7 @@ func (e *Engine) applyMetadata(sid, kind string, res map[string]any) {
 					m.ID = old.ID
 					m.CreatedAt = old.CreatedAt
 					m.Attachments = old.Attachments
+					m.Steps = old.Steps
 					if role == "user" {
 						m.Text = old.Text
 					}
@@ -128,6 +137,7 @@ func (e *Engine) event(sid string, r *runtime, c agent.Client, ev map[string]any
 	var next *Message
 	switch typ {
 	case "process_exit":
+		finishSteps(s, "interrupted")
 		r.client = nil
 		if busy(s.Status) {
 			s.Status = "interrupted"
@@ -160,7 +170,16 @@ func (e *Engine) event(sid string, r *runtime, c agent.Client, ev map[string]any
 			r.failed = true
 			s.Error = str(ev["error"])
 		}
-	case "tool_execution_start", "tool_execution_update", "tool_execution_end", "turn_start", "turn_end", "agent_end":
+	case "session_info_changed":
+		r.titleSequence = r.sequence
+		s.AgentTitle = str(ev["name"])
+		s.Title = s.AgentTitle
+		if s.Title == "" {
+			s.Title = fallbackTitle(s)
+		}
+	case "tool_execution_start", "tool_execution_end":
+		recordTool(s, ev)
+	case "tool_execution_update", "turn_start", "turn_end", "agent_end":
 		persist = false
 	case "message_start":
 		m := obj(ev["message"])
@@ -193,6 +212,14 @@ func (e *Engine) event(sid string, r *runtime, c agent.Client, ev map[string]any
 		}
 	case "message_end":
 		m := obj(ev["message"])
+		if str(m["role"]) == "assistant" {
+			for _, raw := range anySlice(m["content"]) {
+				block := obj(raw)
+				if str(block["type"]) == "toolCall" {
+					recordTool(s, map[string]any{"type": "tool_execution_pending", "toolCallId": block["id"], "toolName": block["name"], "args": block["arguments"]})
+				}
+			}
+		}
 		if str(m["role"]) == "assistant" {
 			txt := textContent(m["content"])
 			for i := range s.Messages {
@@ -242,6 +269,7 @@ func (e *Engine) event(sid string, r *runtime, c agent.Client, ev map[string]any
 			persist = false
 		}
 	case "agent_settled":
+		finishSteps(s, "interrupted")
 		s.Interaction = nil
 		switch {
 		case r.stopped:
@@ -332,4 +360,16 @@ func agentMessageKey(m map[string]any) string {
 		return fmt.Sprintf("%s:%.0f", str(m["role"]), ts)
 	}
 	return ""
+}
+
+func sequenceNumber(v any) uint64 {
+	switch n := v.(type) {
+	case uint64:
+		return n
+	case float64:
+		return uint64(n)
+	case int:
+		return uint64(n)
+	}
+	return 0
 }

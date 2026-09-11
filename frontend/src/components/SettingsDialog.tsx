@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Snapshot, UIAction } from "../types";
+import { SelectionSettings, defaultSelection } from "./SelectionSettings";
 export function SettingsDialog({
+  initialSelection,
+  selectionPermission,
   shortcut,
   setShortcut,
   piPath,
@@ -10,6 +13,8 @@ export function SettingsDialog({
   onSave,
   run,
 }: {
+  initialSelection?: Snapshot["settings"]["selection"];
+  selectionPermission?: boolean;
   shortcut: string;
   setShortcut: (value: string) => void;
   piPath: string;
@@ -23,13 +28,16 @@ export function SettingsDialog({
     savingLock = useRef(false);
   const [saving, setSaving] = useState(false),
     [saveError, setSaveError] = useState("");
+  const [selection, setSelection] = useState(
+    () => initialSelection ?? defaultSelection(),
+  );
   const save = async () => {
     if (savingLock.current) return;
     savingLock.current = true;
     setSaving(true);
     setSaveError("");
     try {
-      await onSave({ shortcut, piPath });
+      await onSave({ shortcut, piPath, selection });
       onClose();
     } catch (error) {
       setSaveError(String(error));
@@ -145,6 +153,12 @@ export function SettingsDialog({
         >
           打开 Pi 配置说明 ↗
         </button>
+        <SelectionSettings
+          value={selection}
+          onChange={setSelection}
+          permission={selectionPermission}
+          requestPermission={() => run("selectionPermission")}
+        />
         {saveError && (
           <p role="alert" className="task-error">
             {saveError}

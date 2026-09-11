@@ -14,13 +14,14 @@ type Attachment struct {
 	Preview string `json:"preview,omitempty"`
 }
 type Message struct {
-	AgentKey    string       `json:"agentKey,omitempty"`
-	ID          string       `json:"id"`
-	Role        string       `json:"role"`
-	Text        string       `json:"text"`
-	Status      string       `json:"status"`
-	CreatedAt   string       `json:"createdAt"`
-	Attachments []Attachment `json:"attachments"`
+	Steps       []ProcessStep `json:"steps"`
+	AgentKey    string        `json:"agentKey,omitempty"`
+	ID          string        `json:"id"`
+	Role        string        `json:"role"`
+	Text        string        `json:"text"`
+	Status      string        `json:"status"`
+	CreatedAt   string        `json:"createdAt"`
+	Attachments []Attachment  `json:"attachments"`
 }
 type Interaction struct {
 	ID           string   `json:"id"`
@@ -48,6 +49,8 @@ type Session struct {
 	DraftAttachments []Attachment `json:"draftAttachments"`
 	ID               string       `json:"id"`
 	Title            string       `json:"title"`
+	AgentTitle       string       `json:"agentTitle"`
+	TitleWritable    bool         `json:"titleWritable"`
 	Pinned           bool         `json:"pinned"`
 	CWD              string       `json:"cwd"`
 	CreatedAt        string       `json:"createdAt"`
@@ -74,8 +77,9 @@ type Session struct {
 	preparationFailure string
 }
 type Settings struct {
-	Shortcut string `json:"shortcut"`
-	PiPath   string `json:"piPath"`
+	Selection *SelectionSettings `json:"selection,omitempty"`
+	Shortcut  string             `json:"shortcut"`
+	PiPath    string             `json:"piPath"`
 }
 type Environment struct {
 	PiPath    string `json:"piPath"`
@@ -84,13 +88,14 @@ type Environment struct {
 	Error     string `json:"error"`
 }
 type Snapshot struct {
-	Version     uint64      `json:"version"`
-	CurrentID   string      `json:"currentId"`
-	Sessions    []*Session  `json:"sessions"`
-	Current     *Session    `json:"current"`
-	Settings    Settings    `json:"settings"`
-	Environment Environment `json:"environment"`
-	Error       string      `json:"error"`
+	SelectionPermission bool        `json:"selectionPermission"`
+	Version             uint64      `json:"version"`
+	CurrentID           string      `json:"currentId"`
+	Sessions            []*Session  `json:"sessions"`
+	Current             *Session    `json:"current"`
+	Settings            Settings    `json:"settings"`
+	Environment         Environment `json:"environment"`
+	Error               string      `json:"error"`
 }
 
 func id() string {

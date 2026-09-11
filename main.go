@@ -49,6 +49,7 @@ func main() {
 	}}, ShouldQuit: d.shouldQuit, OnShutdown: func() {
 		close(d.done)
 		detachNotifications()
+		stopSelection()
 		if d.engine != nil {
 			_ = d.engine.Close()
 		}
@@ -151,6 +152,7 @@ func main() {
 			d.setError(err.Error())
 		}
 		setupNotifications(d.notificationSelected, d.setError)
+		d.configureSelection()
 		go func() {
 			d.refreshEnvironment()
 			if d.engine.Snapshot("main").Environment.Available {

@@ -129,3 +129,5 @@ PI_POPCHAT_REAL_TEST=1 go test -race ./internal/agent/pi ./internal/core -count=
 ## 许可证
 
 本项目采用 [MIT License](LICENSE)。第三方依赖遵循各自的许可证。
+
+本机持续开发可使用固定代码签名证书，避免 ad-hoc 构建改变应用身份。将证书 SHA-1 写入 `~/Library/Application Support/Pi Popchat/build-signing-identity`，之后 `sh scripts/build-app.sh` 自动复用；也可通过 `PI_POPCHAT_SIGN_IDENTITY` 显式指定。证书及私钥保存在钥匙串，配置和私钥不提交仓库。缺少已配置的证书时构建失败，不自动回退临时签名。首次切换证书需重新授予辅助功能权限；正式分发需使用 Developer ID 与公证。

@@ -48,3 +48,8 @@ type HistoryReader interface {
 // ErrHistoryMissing distinguishes a not-yet-persisted new conversation from lost
 // agent state. The application must not silently resume existing history fresh.
 var ErrHistoryMissing = errors.New("Pi 会话文件已不存在，无法恢复已有上下文；请新建会话")
+
+// SessionInfoReader reads metadata without starting an Agent or model request.
+type SessionInfoReader interface {
+	ReadSessionInfo(context.Context, Config) (string, error)
+}

@@ -12,6 +12,8 @@ import { newer, isBusy, shouldSend, fileTarget } from "./state";
 import "./style.css";
 import { InteractionCard } from "./components/AgentContent";
 import { HistorySidebar } from "./components/HistorySidebar";
+import { Fragment } from "react";
+import { ProcessRecord, AgentProgress } from "./components/ProcessRecord";
 import { MessageView } from "./components/MessageView";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { labels } from "./components/status";
@@ -45,11 +47,16 @@ export function App() {
     followOutput = useRef(true),
     fileInput = useRef<HTMLInputElement>(null),
     sendLock = useRef(false),
-    pendingSends = useRef(new Map<string, {
-      id: string;
-      text: string;
-      attachments: Attachment[];
-    }>()),
+    pendingSends = useRef(
+      new Map<
+        string,
+        {
+          id: string;
+          text: string;
+          attachments: Attachment[];
+        }
+      >(),
+    ),
     draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     localDrafts = useRef(
       new Map<
@@ -277,7 +284,10 @@ export function App() {
         text: transaction.text,
         attachments: transaction.attachments,
         clientMessageId: transaction.id,
-        expectedDraftRevision: sessionId.current === sendingSession ? draftRevision.current : sendingRevision,
+        expectedDraftRevision:
+          sessionId.current === sendingSession
+            ? draftRevision.current
+            : sendingRevision,
         id: sendingSession,
       });
       if (sessionId.current === sendingSession) {
@@ -300,8 +310,11 @@ export function App() {
         setConflict(false);
       }
       const local = localDrafts.current.get(sendingSession);
-      if (local?.text === transaction.text &&
-          JSON.stringify(local.attachments) === JSON.stringify(transaction.attachments)) {
+      if (
+        local?.text === transaction.text &&
+        JSON.stringify(local.attachments) ===
+          JSON.stringify(transaction.attachments)
+      ) {
         localDrafts.current.delete(sendingSession);
       }
       if (pendingSends.current.get(sendingSession) === transaction) {
@@ -502,7 +515,12 @@ export function App() {
           }}
           run={run}
           navigate={navigate}
-          onDelete={(id, removeWorkspace) => act("delete", { id, ...(removeWorkspace ? { removeWorkspace: true } : {}) })}
+          onDelete={(id, removeWorkspace) =>
+            act("delete", {
+              id,
+              ...(removeWorkspace ? { removeWorkspace: true } : {}),
+            })
+          }
         />
       )}
       <main className="conversation">
@@ -579,6 +597,18 @@ export function App() {
             )}
           </div>
         )}
+        {snapshot?.settings.selection?.enabled &&
+          snapshot.selectionPermission === false && (
+            <div className="setup" role="status">
+              <strong>划词工具条尚未生效</strong>
+              <p>
+                需要在系统设置中允许 Pi Popchat 使用辅助功能，才能读取选中文字。
+              </p>
+              <button onClick={() => run("selectionPermission")}>
+                打开权限设置
+              </button>
+            </div>
+          )}
         {snapshot?.environment.available &&
           current &&
           !current.models?.length &&
@@ -642,18 +672,39 @@ export function App() {
           {current?.messages
             ?.filter((m) => m.role !== "assistant" || m.text.trim() !== "")
             .map((m) => (
-              <MessageView
-                key={m.id}
-                message={m}
-                cwd={current.cwd}
-                openLink={openLink}
-                run={run}
-              />
+              <Fragment key={m.id}>
+                <MessageView
+                  message={m}
+                  cwd={current.cwd}
+                  sessionId={current.id}
+                  readImage={api.readImage}
+                  openLink={openLink}
+                  run={run}
+                />
+                {m.role === "user" && (
+                  <ProcessRecord
+                    message={m}
+                    active={
+                      busy &&
+                      current.messages.filter((x) => x.role === "user").at(-1)
+                        ?.id === m.id
+                    }
+                    failed={
+                      current.status === "failed" &&
+                      current.messages.filter((x) => x.role === "user").at(-1)
+                        ?.id === m.id
+                    }
+                  />
+                )}
+              </Fragment>
             ))}
           {busy && !current?.interaction && (
             <div className="working">
               <span className="pulse" />
-              {labels[current?.status || "running"]}
+              <AgentProgress
+                messages={current?.messages ?? []}
+                status={current?.status ?? "running"}
+              />
               <button onClick={() => run("stop")}>停止</button>
             </div>
           )}
@@ -905,6 +956,8 @@ export function App() {
       {drag && <div className="drop-zone">松开放入图片或文件</div>}
       {settings && (
         <SettingsDialog
+          initialSelection={snapshot?.settings.selection}
+          selectionPermission={snapshot?.selectionPermission}
           shortcut={shortcut}
           setShortcut={setShortcut}
           piPath={piPath}

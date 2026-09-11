@@ -8,3 +8,6 @@ npm --prefix frontend ci
 npm --prefix frontend test
 npm --prefix frontend run build
 go test -race . ./internal/...
+
+# Exercise production AppKit event monitors; Go probes alone skip this route.
+if [ "$(uname -s)" = Darwin ]; then sh scripts/check-selection-events.sh; fi

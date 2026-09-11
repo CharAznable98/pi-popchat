@@ -337,9 +337,8 @@ func TestAcceptanceRetryAndFailureNotifications(t *testing.T) {
 func TestAcceptanceHistoryCrashRecoveryAndDraftCAS(t *testing.T) {
 	e, f := acceptanceEngine(t)
 	sid, c := acceptanceStart(t, e, f, "main")
-	if err := e.Rename(sid, "Needle title"); err != nil {
-		t.Fatal(err)
-	}
+	c.emit("session_info_changed", map[string]any{"name": "Needle title"})
+	acceptanceEventually(t, func() bool { return e.Snapshot("main").Current.Title == "Needle title" }, "Agent title not indexed")
 	if err := e.Pin(sid, true); err != nil {
 		t.Fatal(err)
 	}

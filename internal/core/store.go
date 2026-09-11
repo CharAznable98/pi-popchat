@@ -134,3 +134,26 @@ func (s *Store) Get(key string, v any) error {
 	return json.Unmarshal(b, v)
 }
 func (s *Store) Close() error { return s.db.Close() }
+
+func (s *Store) saveSubmission(v *Session, selected map[string]string) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	selection, err := json.Marshal(selected)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec("INSERT INTO sessions(id,data) VALUES(?,?)", v.ID, b); err != nil {
+		return err
+	}
+	if _, err = tx.Exec("INSERT INTO settings(key,data) VALUES('selected',?) ON CONFLICT(key) DO UPDATE SET data=excluded.data", selection); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

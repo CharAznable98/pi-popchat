@@ -18,14 +18,15 @@ import (
 )
 
 type runtime struct {
-	sequence    uint64
-	progress    chan struct{}
-	client      agent.Client
-	start       sync.Mutex
-	failed      bool
-	stopped     bool
-	assistantID string
-	lastUsed    time.Time
+	sequence      uint64
+	titleSequence uint64
+	progress      chan struct{}
+	client        agent.Client
+	start         sync.Mutex
+	failed        bool
+	stopped       bool
+	assistantID   string
+	lastUsed      time.Time
 }
 type delivery struct {
 	sid    string
@@ -66,6 +67,9 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 	}
 	e := &Engine{store: store, factory: factory, executable: executable, sessions: map[string]*Session{}, deliveries: map[string]delivery{}, committed: map[string][]byte{}, runtimes: map[string]*runtime{}, selected: map[string]string{}, settings: Settings{Shortcut: "Alt+Space"}, version: 1}
 	_ = store.Get("settings", &e.settings)
+	if e.settings.Selection == nil {
+		e.settings.Selection = DefaultSelectionSettings()
+	}
 	_ = store.Get("selected", &e.selected)
 	_ = store.Get("hiddenAt", &e.hiddenAt)
 	if e.settings.PiPath != "" {
@@ -78,6 +82,10 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 		if s.DraftOnly && s.Status == "failed" {
 			s.preparationFailure = s.Error
 		}
+		finishSteps(s, "interrupted")
+		s.AgentTitle = ""
+		s.Title = fallbackTitle(s)
+		e.refreshTitleFileLocked(s)
 		s.ModelsState = ""
 		s.ModelsError = ""
 		if busy(s.Status) {
@@ -128,6 +136,13 @@ func (e *Engine) saveLocked(s *Session) error {
 	if e.sessionLocked(s.ID) != s {
 		return errors.New("会话已删除或失效")
 	}
+	if !busy(s.Status) {
+		finishSteps(s, "interrupted")
+	}
+	s.Title = s.AgentTitle
+	if s.Title == "" {
+		s.Title = fallbackTitle(s)
+	}
 	s.SearchableText = s.Title
 	for _, m := range s.Messages {
 		s.SearchableText += "\n" + m.Text
@@ -148,7 +163,7 @@ func (e *Engine) saveLocked(s *Session) error {
 func (e *Engine) Snapshot(view string) Snapshot {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	v := Snapshot{Version: e.version, CurrentID: e.selected[view], Sessions: []*Session{}, Settings: e.settings, Environment: e.environment, Error: e.lastError}
+	v := Snapshot{Version: e.version, CurrentID: e.selected[view], Sessions: []*Session{}, Settings: cloneSettings(e.settings), Environment: e.environment, Error: e.lastError}
 	for _, s := range e.sessions {
 		b, _ := json.Marshal(s)
 		var cp Session
@@ -293,6 +308,10 @@ func (e *Engine) SetEnvironment(env Environment) {
 	e.changedLocked()
 }
 func (e *Engine) SetSettings(s Settings) error {
+	if err := validateSelection(s.Selection); err != nil {
+		return err
+	}
+	s = cloneSettings(s)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if err := e.store.Set("settings", s); err != nil {
@@ -305,7 +324,11 @@ func (e *Engine) SetSettings(s Settings) error {
 	e.changedLocked()
 	return nil
 }
-func (e *Engine) Settings() Settings { e.mu.Lock(); defer e.mu.Unlock(); return e.settings }
+func (e *Engine) Settings() Settings {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return cloneSettings(e.settings)
+}
 func (e *Engine) ActiveCount() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -421,6 +444,8 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 		return nil, errors.New("应用正在退出")
 	}
 	r.client = c
+	r.sequence = 0
+	r.titleSequence = 0
 	r.lastUsed = time.Now()
 	e.mu.Unlock()
 	go e.consume(sid, r, c)
@@ -592,16 +617,7 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 	s.DraftRevision++
 	s.DraftAttachments = []Attachment{}
 	s.UpdatedAt = now()
-	if s.Title == "新对话" {
-		r := []rune(text)
-		if len(r) > 32 {
-			r = r[:32]
-		}
-		s.Title = string(r)
-		if s.Title == "" {
-			s.Title = "附件对话"
-		}
-	}
+
 	if busy(s.Status) || s.QueuePaused || len(s.Queue) > 0 {
 		s.Queue = append(s.Queue, m)
 		if s.QueuePaused {
@@ -801,20 +817,6 @@ func (e *Engine) DraftWithRevision(sid, text string, expected *string, attachmen
 	}
 	s.Draft = text
 	s.DraftRevision++
-	return e.saveLocked(s)
-}
-func (e *Engine) Rename(sid, title string) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	s := e.sessionLocked(sid)
-	if s == nil {
-		return errors.New("会话不存在")
-	}
-	title = strings.TrimSpace(title)
-	if title == "" {
-		return errors.New("标题不能为空")
-	}
-	s.Title = title
 	return e.saveLocked(s)
 }
 func (e *Engine) Pin(sid string, pin bool) error {

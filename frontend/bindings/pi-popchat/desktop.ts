@@ -13,6 +13,10 @@ export function Action(view: string, action: string, p: { [_ in string]?: any } 
     return $Call.ByID(1549377734, view, action, p);
 }
 
+export function ReadMessageImage(sessionID: string, path: string): $CancellablePromise<string> {
+    return $Call.ByID(1538590036, sessionID, path);
+}
+
 export function SaveAttachment(name: string, mime: string, data: string): $CancellablePromise<core$0.Attachment> {
     return $Call.ByID(1566121172, name, mime, data);
 }

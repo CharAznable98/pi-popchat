@@ -75,6 +75,10 @@ export function HistorySidebar({
             {menu === s.id && (
               <div className="session-menu">
                 <button
+                  disabled={!s.titleWritable}
+                  title={
+                    !s.titleWritable ? "Pi 首次保存会话后可重命名" : undefined
+                  }
                   onClick={() => {
                     const title = window.prompt("会话名称", s.title);
                     if (title?.trim())
@@ -114,9 +118,12 @@ export function HistorySidebar({
         ⚙ 设置 <span>{shortcut?.replace("Alt", "⌥")}</span>
       </button>
       {deleting && (
-        <DeleteSessionDialog title={deleting.title} workspace={deleting.managedWorkspace ? deleting.cwd : undefined}
+        <DeleteSessionDialog
+          title={deleting.title}
+          workspace={deleting.managedWorkspace ? deleting.cwd : undefined}
           onDelete={(removeWorkspace) => onDelete(deleting.id, removeWorkspace)}
-          onClose={() => setDeleting(null)} />
+          onClose={() => setDeleting(null)}
+        />
       )}
     </aside>
   );

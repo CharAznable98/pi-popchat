@@ -24,36 +24,11 @@ func (c *client) ReadHistory(ctx context.Context) ([]map[string]any, error) {
 	c.mu.Lock()
 	path, root := c.historyFile, c.historyRoot
 	c.mu.Unlock()
-	if path == "" {
-		return nil, agent.ErrHistoryMissing
-	}
-	root, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return nil, fmt.Errorf("无法读取受管会话目录: %w", err)
-	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, agent.ErrHistoryMissing
-	} // Core distinguishes a new conversation from a lost historical session.
-	if err != nil {
-		return nil, err
-	}
-	rel, err := filepath.Rel(root, resolved)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return nil, errors.New("Pi 会话文件不在应用管理目录中")
-	}
-	f, err := os.Open(resolved)
+	f, err := openSessionFile(path, root)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, errors.New("Pi 会话文件不是普通文件")
-	}
 	return readVisibleHistory(ctx, f)
 }
 
@@ -175,4 +150,39 @@ func readVisibleHistory(ctx context.Context, f *os.File) ([]map[string]any, erro
 		result[len(reverse)-1-i] = m
 	}
 	return result, nil
+}
+
+func openSessionFile(path, root string) (*os.File, error) {
+	if path == "" {
+		return nil, agent.ErrHistoryMissing
+	}
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return nil, fmt.Errorf("无法读取受管会话目录: %w", err)
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, agent.ErrHistoryMissing
+	} // Core distinguishes a new conversation from a lost historical session.
+	if err != nil {
+		return nil, err
+	}
+	rel, err := filepath.Rel(root, resolved)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil, errors.New("Pi 会话文件不在应用管理目录中")
+	}
+	f, err := os.Open(resolved)
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		f.Close()
+		return nil, errors.New("Pi 会话文件不是普通文件")
+	}
+	return f, nil
 }

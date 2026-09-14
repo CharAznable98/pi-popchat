@@ -1,10 +1,10 @@
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
-import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import {mkdir,mkdtemp,writeFile,readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import assert from 'node:assert/strict';
-const root=resolve('work/pi-verification');
-await mkdir(root,{recursive:true});
+await mkdir(resolve('work'),{recursive:true});
+const root=await mkdtemp(resolve('work/pi-verification-'));
 const out=resolve('outputs');
 await mkdir(out,{recursive:true});
 const results=[],clients=[],requests=[];let failOnce=false;
@@ -19,7 +19,7 @@ const server=createServer(async(req,res)=>{
  const send=(delta,finish_reason=null)=>res.write('data: '+JSON.stringify({id:'test',object:'chat.completion.chunk',created:1,model:data.model,choices:[{index:0,delta,finish_reason}]})+'\n\n');
  send({role:'assistant'});
  if(last.role==='user'&&str.includes('READ_FIXTURE')){
-  send({tool_calls:[{index:0,id:'read_'+requests.length,type:'function',function:{name:'read',arguments:JSON.stringify({path:root+'/sample.txt'})}}]});send({},'tool_calls');
+  send({tool_calls:[{index:0,id:'read_'+requests.length,type:'function',function:{name:'read',arguments:JSON.stringify({path:root+(str.includes('MISSING')?'/missing.txt':'/sample.txt')})}}]});send({},'tool_calls');
  }else if(last.role==='user'&&str.includes('TOOL')){
   send({tool_calls:[{index:0,id:'call_'+requests.length,type:'function',function:{name:'probe_delay',arguments:'{}'}}]});send({},'tool_calls');
  }else{
@@ -41,6 +41,7 @@ export default function(pi){
  pi.registerTool({name:'probe_delay',label:'Probe delay',description:'Local deterministic test',parameters:Type.Object({}),async execute(id,args,signal,onUpdate){onUpdate({content:[{type:'text',text:'progress'}],details:{}});await new Promise(r=>setTimeout(r,900));return {content:[{type:'text',text:'finished'}],details:{}};}});
  pi.registerCommand('probe-dialog',{description:'Local dialog',handler:async(a,ctx)=>{const result=await ctx.ui.confirm('Probe','Continue?');ctx.ui.notify(result?'confirmed':'cancelled','info');}});
  pi.registerCommand('probe-custom',{description:'TUI custom',handler:async(a,ctx)=>{const result=await ctx.ui.custom(()=>{throw Error('must not run')});ctx.ui.notify('custom:'+String(result),'info');}});
+ pi.registerCommand('probe-name',{description:'Synthetic title update',handler:async(a)=>{pi.setSessionName(a==='clear'?'':a);}});
  pi.registerCommand('probe-dialogs',{description:'All dialogs',handler:async(a,ctx)=>{const s=await ctx.ui.select('Choice',['A','B']);const i=await ctx.ui.input('Input','text');const e=await ctx.ui.editor('Editor','initial');ctx.ui.notify(JSON.stringify({s,i,e}),'info');}});
 }`);
 class Client{
@@ -71,11 +72,82 @@ try{
  await test('Blocking dialog and unsupported TUI custom',async()=>{const i=a.events.length;const pending=a.rpc('prompt',{message:'/probe-dialog'});const e=await a.wait(e=>e.type==='extension_ui_request'&&e.method==='confirm',i);a.p.stdin.write(JSON.stringify({type:'extension_ui_response',id:e.id,confirmed:true})+'\n');assert.equal((await pending).success,true);await a.wait(e=>e.method==='notify'&&e.message==='confirmed',i);await a.rpc('prompt',{message:'/probe-custom'});await a.wait(e=>e.method==='notify'&&e.message==='custom:undefined',i);return 'confirm roundtrip works; custom() returns undefined.';});
  await test('Select/input/editor interaction roundtrips',async()=>{const i=a.events.length;const pending=a.rpc('prompt',{message:'/probe-dialogs'});for(const [method,value]of [['select','B'],['input','typed'],['editor','edited']]){const e=await a.wait(e=>e.type==='extension_ui_request'&&e.method===method,i);a.p.stdin.write(JSON.stringify({type:'extension_ui_response',id:e.id,value})+'\n');}assert.equal((await pending).success,true);await a.wait(e=>e.method==='notify'&&e.message===JSON.stringify({s:'B',i:'typed',e:'edited'}),i);return 'All three dialogs completed through RPC without a terminal.';});
  await test('Concurrent processes and history isolation',async()=>{const b=new Client('b');await b.rpc('get_state');await Promise.all([a.prompt('SLOW_A'),b.prompt('SLOW_B')]);const am=(await a.rpc('get_messages')).data.messages,bm=(await b.rpc('get_messages')).data.messages;assert(!JSON.stringify(am).includes('SLOW_B'));assert(!JSON.stringify(bm).includes('SLOW_A'));await b.stop();return 'Two real Pi processes run concurrently with distinct sessions.';});
+ await test('Title event, normalized value and rejected empty rename',async()=>{
+  const i=a.events.length;
+  assert.equal((await a.rpc('set_session_name',{name:'  Synthetic\nTitle  '})).success,true);
+  const ev=await a.wait(e=>e.type==='session_info_changed',i);
+  assert.equal(ev.name,'Synthetic Title');
+  assert.equal((await a.rpc('get_state')).data.sessionName,ev.name);
+  assert.equal((await a.rpc('set_session_name',{name:' \n '})).success,false);
+  assert.equal((await a.rpc('get_state')).data.sessionName,ev.name);
+  return 'Use Pi normalized title; empty RPC rename fails and preserves the previous title.';
+ });
+ await test('Extension title changes and clear propagate through RPC',async()=>{
+  for(const name of ['Extension title','clear']){
+   const i=a.events.length;
+   assert.equal((await a.rpc('prompt',{message:'/probe-name '+name})).success,true);
+   const ev=await a.wait(e=>e.type==='session_info_changed',i);
+   const expected=name==='clear'?undefined:name;
+   assert.equal(ev.name,expected);
+   assert.equal((await a.rpc('get_state')).data.sessionName,expected);
+  }
+  return 'Extension updates and clearing emit events; missing name means restore display fallback.';
+ });
+ await test('Inactive history reads latest title including clear',async()=>{
+  const state=(await a.rpc('get_state')).data;
+  const entries=(await readFile(state.sessionFile,'utf8')).trim().split('\n').map(JSON.parse);
+  assert.equal(entries.filter(e=>e.type==='session_info').at(-1).name,'');
+  const c=new Client('cleared-resume',['--session',state.sessionFile]);
+  assert.equal((await c.rpc('get_state')).data.sessionName,undefined);
+  await c.stop();
+  return 'Latest session_info on disk is authoritative even when empty; no model request needed.';
+ });
+ await test('Rename before first assistant is not durable yet',async()=>{
+  const c=new Client('pre-message');
+  assert.equal((await c.rpc('get_state')).data.sessionName,undefined);
+  assert.equal((await c.rpc('set_session_name',{name:'Before first reply'})).success,true);
+  const state=(await c.rpc('get_state')).data;
+  assert.equal(state.sessionName,'Before first reply');
+  let exists=true;
+  try{await readFile(state.sessionFile);}catch(e){if(e.code!=='ENOENT')throw e;exists=false;}
+  assert.equal(exists,false);
+  await c.prompt('SYNTHETIC_FIRST_REPLY');
+  const entries=(await readFile(state.sessionFile,'utf8')).trim().split('\n').map(JSON.parse);
+  assert(entries.some(e=>e.type==='session_info'&&e.name==='Before first reply'));
+  await c.stop();
+  return 'RPC success updates memory before first assistant; persistence begins with assistant history.';
+ });
+ await test('Tool identity and objects permit compact process records',async()=>{
+  const ev=await a.prompt('READ_FIXTURE');
+  const start=ev.find(e=>e.type==='tool_execution_start');
+  const end=ev.find(e=>e.type==='tool_execution_end');
+  assert.equal(start.toolName,'read');assert.equal(start.args.path,root+'/sample.txt');
+  assert.equal(end.toolCallId,start.toolCallId);assert.equal(end.isError,false);
+  const dynamic=await a.prompt('TOOL');
+  const ds=dynamic.find(e=>e.type==='tool_execution_start');
+  const du=dynamic.find(e=>e.type==='tool_execution_update');
+  const de=dynamic.find(e=>e.type==='tool_execution_end');
+  assert.equal(du.toolCallId,ds.toolCallId);assert.equal(de.toolCallId,ds.toolCallId);
+  return {startKeys:Object.keys(start),updateKeys:Object.keys(du),endKeys:Object.keys(end),note:'Object summaries need per-tool mappings; no universal semantic action field.'};
+ });
  await test('Rename and restart continuation',async()=>{await a.rpc('set_session_name',{name:'Compatibility probe'});const s=(await a.rpc('get_state')).data;const before=(await a.rpc('get_entries')).data.entries;await a.stop();const c=new Client('resume',['--session',s.sessionFile]);const state=(await c.rpc('get_state')).data;assert.equal(state.sessionId,s.sessionId);assert.equal(state.sessionName,'Compatibility probe');assert.equal((await c.rpc('get_entries')).data.entries.length,before.length);await c.prompt('RESUMED');const i=c.events.length;await c.rpc('prompt',{message:'SLOW_ABORT'});await c.wait(e=>e.type==='agent_start',i);assert.equal((await c.rpc('abort')).success,true);assert.equal((await c.rpc('get_state')).data.isStreaming,false);await c.stop();return 'Session ID/name/history retained; continued after restart; abort returns idle.';});
+ await test('Failed tool can be followed by a successful assistant reply',async()=>{
+  const c=new Client('tool-error');
+  const ev=await c.prompt('READ_FIXTURE MISSING');
+  assert(ev.some(e=>e.type==='tool_execution_end'&&e.isError===true));
+  assert(ev.some(e=>e.type==='message_end'&&e.message?.role==='assistant'&&e.message?.stopReason==='stop'));
+  const state=(await c.rpc('get_state')).data;
+  const entries=(await readFile(state.sessionFile,'utf8')).trim().split('\n').map(JSON.parse);
+  assert(entries.some(e=>e.message?.role==='toolResult'&&e.message.isError===true));
+  assert(!entries.some(e=>e.type==='tool_execution_start'));
+  await c.stop();
+  return 'Failure is per tool; native history stores tool calls/results but not execution-start events or complete live timings.';
+ });
  await test('Unconfigured Agent startup',async()=>{await mkdir(root+'/empty-config',{recursive:true});const c=new Client('empty',[],root+'/empty-config');const state=await c.rpc('get_state');const models=await c.rpc('get_available_models');assert.equal(state.success,true);assert.equal(models.data.models.length,0);const r=await c.rpc('prompt',{message:'NO_AUTH'});assert.equal(r.success,false);await c.stop();return {availableModels:0,error:r.error};});
  await test('Retry does not signal premature completion',async()=>{const c=new Client('retry');await c.rpc('get_state');const ev=await c.prompt('FAIL_ONCE');assert(ev.some(e=>e.type==='auto_retry_start'));assert.equal(ev.filter(e=>e.type==='agent_settled').length,1);assert(ev.findIndex(e=>e.type==='auto_retry_end')<ev.findIndex(e=>e.type==='agent_settled'));await c.stop();return [...new Set(ev.map(e=>e.type))];});
  await test('Accepted prompt can still fail',async()=>{const c=new Client('error');await c.rpc('get_state');const ev=await c.prompt('FAIL_FINAL');assert(ev.some(e=>e.type==='message_end'&&e.message?.stopReason==='error'));assert(ev.some(e=>e.type==='agent_settled'));await c.stop();return 'prompt success means acceptance; message stopReason=error distinguishes failure from success.';});
 }finally{
  for(const c of clients)await c.stop();server.closeAllConnections();await new Promise(r=>server.close(r));
- await writeFile(out+'/pi-compatibility-results.json',JSON.stringify({version:'0.84.1',date:'2026-09-09',method:'Real local Pi subprocesses; isolated synthetic configuration; loopback deterministic mock model; no real provider credentials',results},null,2));
+ await writeFile(out+'/pi-compatibility-results.json',JSON.stringify({version:'0.84.1',date:new Date().toISOString(),method:'Real local Pi subprocesses; isolated synthetic configuration; loopback deterministic mock model; no real provider credentials',results},null,2));
 }
+if(results.some(r=>r.status==='FAIL'))process.exitCode=1;

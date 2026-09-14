@@ -306,7 +306,7 @@ func TestDeletionRechecksReferencesAfterClosingAgent(t *testing.T) {
 	if e.Snapshot("main").Current == nil {
 		t.Fatal("rejected deletion removed history")
 	}
-	if err = e.Rename(sid, "usable after rejection"); err != nil {
+	if err = e.Pin(sid, true); err != nil {
 		t.Fatal("deletion marker was not cleared")
 	}
 }

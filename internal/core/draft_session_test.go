@@ -132,7 +132,7 @@ func TestFirstSubmissionAtomicPromotionAndConcurrentDeduplication(t *testing.T) 
 		t.Fatal("stale draft write accepted")
 	}
 	// Saves for the previous session cannot remove the next shared composer.
-	if err := e.Rename(sid, "renamed"); err != nil {
+	if err := e.Pin(sid, true); err != nil {
 		t.Fatal(err)
 	}
 	draft, err = e.store.LoadDraft()

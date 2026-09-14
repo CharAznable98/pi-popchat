@@ -48,9 +48,9 @@ Pi Popchat 会检测本机的 Pi；未找到时会提供安装指引，也可在
 
 ### 2. 安装 Pi Popchat
 
-在 [Releases](https://github.com/CharAznable98/pi-popchat/releases/latest) 下载 `Pi-Popchat-v0.1.2-macOS-arm64.zip`，解压后将 `Pi Popchat.app` 拖入“应用程序”文件夹，再打开应用。
+在 [Releases](https://github.com/CharAznable98/pi-popchat/releases/latest) 下载 `Pi-Popchat-v0.1.3-macOS-arm64.zip`，解压后将 `Pi Popchat.app` 拖入“应用程序”文件夹，再打开应用。
 
-当前提供 **macOS 15 / Apple Silicon** 构建。安装包使用 ad-hoc 签名，尚未使用 Developer ID 签名或通过 Apple 公证，macOS 可能阻止直接打开；请确认下载来源，也可以选择从源码在本机构建。Intel Mac 和其他 macOS 版本暂未验证。
+当前提供 **macOS 15 / Apple Silicon** 构建。安装包使用固定的本机开发证书签名，尚未使用 Developer ID 签名或通过 Apple 公证，macOS 可能阻止直接打开；请确认下载来源，也可以选择从源码在本机构建。Intel Mac 和其他 macOS 版本暂未验证。
 
 如果选择源码构建，准备 Go 1.26、Node.js 24 和 Xcode Command Line Tools，然后执行：
 
@@ -129,3 +129,5 @@ PI_POPCHAT_REAL_TEST=1 go test -race ./internal/agent/pi ./internal/core -count=
 ## 许可证
 
 本项目采用 [MIT License](LICENSE)。第三方依赖遵循各自的许可证。
+
+本机持续开发可使用固定代码签名证书，避免 ad-hoc 构建改变应用身份。将证书 SHA-1 写入 `~/Library/Application Support/Pi Popchat/build-signing-identity`，之后 `sh scripts/build-app.sh` 自动复用；也可通过 `PI_POPCHAT_SIGN_IDENTITY` 显式指定。证书及私钥保存在钥匙串，配置和私钥不提交仓库。缺少已配置的证书时构建失败，不自动回退临时签名。首次切换证书需重新授予辅助功能权限；正式分发需使用 Developer ID 与公证。

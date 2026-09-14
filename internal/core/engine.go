@@ -18,38 +18,41 @@ import (
 )
 
 type runtime struct {
-	sequence    uint64
-	progress    chan struct{}
-	client      agent.Client
-	start       sync.Mutex
-	failed      bool
-	stopped     bool
-	assistantID string
-	lastUsed    time.Time
+	sequence      uint64
+	titleSequence uint64
+	progress      chan struct{}
+	client        agent.Client
+	start         sync.Mutex
+	failed        bool
+	stopped       bool
+	assistantID   string
+	lastUsed      time.Time
 }
 type delivery struct {
 	sid    string
 	cancel context.CancelFunc
 }
 type Engine struct {
-	deliveries  map[string]delivery
-	committed   map[string][]byte
-	wg          sync.WaitGroup
-	mu          sync.Mutex
-	store       *Store
-	factory     agent.Factory
-	executable  string
-	sessions    map[string]*Session
-	runtimes    map[string]*runtime
-	selected    map[string]string
-	hiddenAt    time.Time
-	settings    Settings
-	environment Environment
-	version     uint64
-	lastError   string
-	closing     bool
-	Changed     func()
-	Notify      func(string, string, string)
+	titleContext context.Context
+	cancelTitles context.CancelFunc
+	deliveries   map[string]delivery
+	committed    map[string][]byte
+	wg           sync.WaitGroup
+	mu           sync.Mutex
+	store        *Store
+	factory      agent.Factory
+	executable   string
+	sessions     map[string]*Session
+	runtimes     map[string]*runtime
+	selected     map[string]string
+	hiddenAt     time.Time
+	settings     Settings
+	environment  Environment
+	version      uint64
+	lastError    string
+	closing      bool
+	changed      func()
+	Notify       func(string, string, string)
 }
 
 func New(store *Store, factory agent.Factory, executable string) (*Engine, error) {
@@ -65,7 +68,11 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 		all = append(all, draft)
 	}
 	e := &Engine{store: store, factory: factory, executable: executable, sessions: map[string]*Session{}, deliveries: map[string]delivery{}, committed: map[string][]byte{}, runtimes: map[string]*runtime{}, selected: map[string]string{}, settings: Settings{Shortcut: "Alt+Space"}, version: 1}
+	e.titleContext, e.cancelTitles = context.WithCancel(context.Background())
 	_ = store.Get("settings", &e.settings)
+	if e.settings.Selection == nil {
+		e.settings.Selection = DefaultSelectionSettings()
+	}
 	_ = store.Get("selected", &e.selected)
 	_ = store.Get("hiddenAt", &e.hiddenAt)
 	if e.settings.PiPath != "" {
@@ -78,6 +85,9 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 		if s.DraftOnly && s.Status == "failed" {
 			s.preparationFailure = s.Error
 		}
+		finishSteps(s, "interrupted")
+		s.AgentTitle = ""
+		s.Title = fallbackTitle(s)
 		s.ModelsState = ""
 		s.ModelsError = ""
 		if busy(s.Status) {
@@ -102,6 +112,19 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 			return nil, err
 		}
 	}
+	// Restore metadata after startup without serial filesystem reads blocking New.
+	e.mu.Lock()
+	_, hasTitleReader := factory.(agent.SessionInfoReader)
+	for offset := 0; hasTitleReader && offset < min(4, len(all)); offset++ {
+		e.wg.Add(1)
+		go func(offset int) {
+			defer e.wg.Done()
+			for i := offset; i < len(all); i += 4 {
+				e.refreshTitleFile(all[i].ID, true)
+			}
+		}(offset)
+	}
+	e.mu.Unlock()
 	return e, nil
 }
 
@@ -116,10 +139,15 @@ func (e *Engine) sessionLocked(sid string) *Session {
 }
 
 func (e *Engine) Root() string { return e.store.Root }
+func (e *Engine) SetChangedCallback(fn func()) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.changed = fn
+}
 func (e *Engine) changedLocked() {
 	e.version++
-	if e.Changed != nil {
-		go e.Changed()
+	if e.changed != nil {
+		go e.changed()
 	}
 }
 func (e *Engine) saveLocked(s *Session) error {
@@ -127,6 +155,13 @@ func (e *Engine) saveLocked(s *Session) error {
 	// Delete invalidates it under the same mutex before any late completion can save.
 	if e.sessionLocked(s.ID) != s {
 		return errors.New("会话已删除或失效")
+	}
+	if !busy(s.Status) {
+		finishSteps(s, "interrupted")
+	}
+	s.Title = s.AgentTitle
+	if s.Title == "" {
+		s.Title = fallbackTitle(s)
 	}
 	s.SearchableText = s.Title
 	for _, m := range s.Messages {
@@ -148,7 +183,7 @@ func (e *Engine) saveLocked(s *Session) error {
 func (e *Engine) Snapshot(view string) Snapshot {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	v := Snapshot{Version: e.version, CurrentID: e.selected[view], Sessions: []*Session{}, Settings: e.settings, Environment: e.environment, Error: e.lastError}
+	v := Snapshot{Version: e.version, CurrentID: e.selected[view], Sessions: []*Session{}, Settings: cloneSettings(e.settings), Environment: e.environment, Error: e.lastError}
 	for _, s := range e.sessions {
 		b, _ := json.Marshal(s)
 		var cp Session
@@ -293,6 +328,10 @@ func (e *Engine) SetEnvironment(env Environment) {
 	e.changedLocked()
 }
 func (e *Engine) SetSettings(s Settings) error {
+	if err := validateSelection(s.Selection); err != nil {
+		return err
+	}
+	s = cloneSettings(s)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if err := e.store.Set("settings", s); err != nil {
@@ -305,7 +344,11 @@ func (e *Engine) SetSettings(s Settings) error {
 	e.changedLocked()
 	return nil
 }
-func (e *Engine) Settings() Settings { e.mu.Lock(); defer e.mu.Unlock(); return e.settings }
+func (e *Engine) Settings() Settings {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return cloneSettings(e.settings)
+}
 func (e *Engine) ActiveCount() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -421,6 +464,8 @@ func (e *Engine) ensureMetadataAttempt(sid string, refresh bool, begin func(*Ses
 		return nil, errors.New("应用正在退出")
 	}
 	r.client = c
+	r.sequence = 0
+	r.titleSequence = 0
 	r.lastUsed = time.Now()
 	e.mu.Unlock()
 	go e.consume(sid, r, c)
@@ -592,16 +637,7 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 	s.DraftRevision++
 	s.DraftAttachments = []Attachment{}
 	s.UpdatedAt = now()
-	if s.Title == "新对话" {
-		r := []rune(text)
-		if len(r) > 32 {
-			r = r[:32]
-		}
-		s.Title = string(r)
-		if s.Title == "" {
-			s.Title = "附件对话"
-		}
-	}
+
 	if busy(s.Status) || s.QueuePaused || len(s.Queue) > 0 {
 		s.Queue = append(s.Queue, m)
 		if s.QueuePaused {
@@ -612,6 +648,7 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 		return err
 	}
 	m.Status = "sending"
+	m.DeliveryStartedAt = ""
 	s.Messages = append(s.Messages, m)
 	s.Status = "starting"
 	s.Error = ""
@@ -664,6 +701,7 @@ func (e *Engine) advanceIdleQueueLocked(sid string) {
 	m := s.Queue[0]
 	s.Queue = s.Queue[1:]
 	m.Status = "sending"
+	m.DeliveryStartedAt = ""
 	s.Messages = append(s.Messages, m)
 	s.Status = "starting"
 	if e.saveLocked(s) == nil {
@@ -728,6 +766,23 @@ func (e *Engine) deliver(ctx context.Context, sid string, m Message, kind string
 	if len(images) > 0 {
 		cmd["images"] = images
 	}
+	// Start elapsed time at actual dispatch, after queueing and preparation.
+	e.mu.Lock()
+	current = e.sessionLocked(sid)
+	if current == nil || e.closing || ctx.Err() != nil || current.Status == "stopped" || current.Status == "interrupted" {
+		e.mu.Unlock()
+		return
+	}
+	for i := range current.Messages {
+		if current.Messages[i].ID == m.ID {
+			current.Messages[i].DeliveryStartedAt = now()
+			break
+		}
+	}
+	// This display timestamp must not add a second persistence gate after the
+	// submission was committed. Persist it with the request outcome below.
+	e.changedLocked()
+	e.mu.Unlock()
 	_, err = c.Request(ctx, cmd)
 	if err != nil {
 		if ctx.Err() == nil {
@@ -801,20 +856,6 @@ func (e *Engine) DraftWithRevision(sid, text string, expected *string, attachmen
 	}
 	s.Draft = text
 	s.DraftRevision++
-	return e.saveLocked(s)
-}
-func (e *Engine) Rename(sid, title string) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	s := e.sessionLocked(sid)
-	if s == nil {
-		return errors.New("会话不存在")
-	}
-	title = strings.TrimSpace(title)
-	if title == "" {
-		return errors.New("标题不能为空")
-	}
-	s.Title = title
 	return e.saveLocked(s)
 }
 func (e *Engine) Pin(sid string, pin bool) error {
@@ -996,6 +1037,7 @@ func (e *Engine) QueueAction(sid, action, mid string) error {
 			m := s.Queue[0]
 			s.Queue = s.Queue[1:]
 			m.Status = "sending"
+			m.DeliveryStartedAt = ""
 			s.Messages = append(s.Messages, m)
 			s.Status = "starting"
 			s.Error = ""
@@ -1034,6 +1076,7 @@ func (e *Engine) QueueAction(sid, action, mid string) error {
 		s.Status = "starting"
 	}
 	m.Status = "sending"
+	m.DeliveryStartedAt = ""
 	s.Messages = append(s.Messages, m)
 	err := e.saveLocked(s)
 	if err == nil {
@@ -1157,6 +1200,9 @@ func (e *Engine) SetModel(sid, provider, model string) error {
 func (e *Engine) Close() error {
 	e.mu.Lock()
 	e.closing = true
+	if e.cancelTitles != nil {
+		e.cancelTitles()
+	}
 	for _, d := range e.deliveries {
 		d.cancel()
 	}

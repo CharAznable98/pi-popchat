@@ -40,12 +40,16 @@ func (d *Desktop) setError(s string) {
 }
 func (d *Desktop) Snapshot(view string) core.Snapshot {
 	s := d.engine.Snapshot(view)
+	s.SelectionPermission = selectionPermission(false)
 	d.mu.Lock()
 	if d.errorText != "" {
 		s.Error = d.errorText
 	}
 	d.mu.Unlock()
 	return s
+}
+func (d *Desktop) ReadMessageImage(sessionID, path string) (string, error) {
+	return d.engine.ReadMessageImage(sessionID, path)
 }
 func (d *Desktop) SaveAttachment(name, mime, data string) (core.Attachment, error) {
 	return d.engine.SaveAttachment(name, mime, data)
@@ -145,9 +149,22 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 		if d.engine.Snapshot(view).Environment.Available {
 			err = d.engine.Refresh(sid)
 		}
+	case "selectionPermission":
+		selectionPermission(true)
 	case "settings":
 		old := d.engine.Settings()
 		next := old
+		if raw, ok := p["selection"]; ok {
+			b, encodeErr := json.Marshal(raw)
+			if encodeErr != nil {
+				return d.Snapshot(view), encodeErr
+			}
+			var config core.SelectionSettings
+			if decodeErr := json.Unmarshal(b, &config); decodeErr != nil {
+				return d.Snapshot(view), decodeErr
+			}
+			next.Selection = &config
+		}
 		if _, ok := p["shortcut"]; ok {
 			next.Shortcut = str("shortcut")
 		}
@@ -162,6 +179,7 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 			if err != nil {
 				_ = d.setShortcut(old.Shortcut)
 			} else {
+				d.configureSelection()
 				go d.refreshEnvironment()
 			}
 		}
@@ -218,6 +236,9 @@ func (d *Desktop) showPanelOn(screen *application.Screen) {
 		d.setError(err.Error())
 		return
 	}
+	d.presentPanel(screen)
+}
+func (d *Desktop) presentPanel(screen *application.Screen) {
 	application.InvokeSync(func() {
 		d.mu.Lock()
 		d.panelWanted = true

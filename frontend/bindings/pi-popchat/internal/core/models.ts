@@ -32,6 +32,8 @@ export interface Interaction {
 }
 
 export interface Message {
+    "deliveryStartedAt"?: string;
+    "steps": ProcessStep[] | null;
     "agentKey"?: string;
     "id": string;
     "role": string;
@@ -47,6 +49,29 @@ export interface Model {
     "provider": string;
 }
 
+/**
+ * ProcessStep is a display projection, never raw arguments, thinking or output.
+ */
+export interface ProcessStep {
+    "id": string;
+    "action": string;
+    "object"?: string;
+    "status": string;
+    "startedAt": string;
+    "endedAt"?: string;
+}
+
+export interface SelectionButton {
+    "id": string;
+    "name": string;
+    "template": string;
+}
+
+export interface SelectionSettings {
+    "enabled": boolean;
+    "buttons": SelectionButton[] | null;
+}
+
 export interface Session {
     "draftOnly": boolean;
     "cwdSource"?: string;
@@ -55,6 +80,8 @@ export interface Session {
     "draftAttachments": Attachment[] | null;
     "id": string;
     "title": string;
+    "agentTitle": string;
+    "titleWritable": boolean;
     "pinned": boolean;
     "cwd": string;
     "createdAt": string;
@@ -77,11 +104,13 @@ export interface Session {
 }
 
 export interface Settings {
+    "selection"?: SelectionSettings | null;
     "shortcut": string;
     "piPath": string;
 }
 
 export interface Snapshot {
+    "selectionPermission": boolean;
     "version": number;
     "currentId": string;
     "sessions": (Session | null)[] | null;

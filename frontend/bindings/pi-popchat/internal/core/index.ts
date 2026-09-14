@@ -8,6 +8,9 @@ export type {
     Interaction,
     Message,
     Model,
+    ProcessStep,
+    SelectionButton,
+    SelectionSettings,
     Session,
     Settings,
     Snapshot

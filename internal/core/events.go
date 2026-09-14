@@ -40,7 +40,8 @@ func (e *Engine) applyMetadata(sid, kind string, res map[string]any) {
 			s.SessionFile = f
 		}
 		if r := e.runtimes[sid]; r == nil || sequenceNumber(res["_eventSequence"]) >= r.titleSequence {
-			e.refreshTitleFileLocked(s)
+			s.titleRevision++
+			e.refreshTitleAsyncLocked(sid, false)
 			s.AgentTitle = str(data["sessionName"])
 			s.Title = s.AgentTitle
 			if s.Title == "" {
@@ -153,6 +154,14 @@ func (e *Engine) event(sid string, r *runtime, c agent.Client, ev map[string]any
 		}
 	case "agent_start":
 		if !r.stopped {
+			if s.Status == "retrying" {
+				for i := len(s.Messages) - 1; i >= 0; i-- {
+					if s.Messages[i].Role == "user" {
+						s.Messages[i].DeliveryStartedAt = now()
+						break
+					}
+				}
+			}
 			s.Status = "running"
 			s.Error = ""
 			r.failed = false
@@ -171,6 +180,7 @@ func (e *Engine) event(sid string, r *runtime, c agent.Client, ev map[string]any
 			s.Error = str(ev["error"])
 		}
 	case "session_info_changed":
+		s.titleRevision++
 		r.titleSequence = r.sequence
 		s.AgentTitle = str(ev["name"])
 		s.Title = s.AgentTitle

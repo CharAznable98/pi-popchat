@@ -438,3 +438,13 @@ it("shows missing selection permission and refreshes after authorization", async
     expect(screen.queryByText("划词工具条尚未生效")).toBeNull(),
   );
 });
+
+it("does not request Accessibility permission when selection buttons are empty", async () => {
+  const empty = state(30);
+  empty.settings.selection = { enabled: true, buttons: [] };
+  empty.selectionPermission = false;
+  mock.snapshot.mockResolvedValue(empty);
+  await setup();
+  expect(screen.queryByText("划词工具条尚未生效")).toBeNull();
+  expect(screen.queryByRole("button", { name: "打开权限设置" })).toBeNull();
+});

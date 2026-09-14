@@ -6,6 +6,7 @@ export type Attachment = {
   preview?: string;
 };
 export type Message = {
+  deliveryStartedAt?: string;
   steps?: ProcessStep[];
   id: string;
   role: string;

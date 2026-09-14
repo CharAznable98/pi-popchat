@@ -1,6 +1,7 @@
 // Synthetic fixture: show production toolbar without enabling selection capture.
 #import "../selection_darwin.m"
 void popchatSelectionClicked(char *payload) {}
+int popchatSelectionPromptValid(char *payload) {return 1;}
 void popchatSelectionPermissionChanged(void) {}
 int main(int argc, const char **argv) { @autoreleasepool {
  [NSApplication sharedApplication];

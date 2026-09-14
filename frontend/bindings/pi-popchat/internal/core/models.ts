@@ -32,6 +32,7 @@ export interface Interaction {
 }
 
 export interface Message {
+    "deliveryStartedAt"?: string;
     "steps": ProcessStep[] | null;
     "agentKey"?: string;
     "id": string;

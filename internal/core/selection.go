@@ -9,6 +9,12 @@ import (
 	"time"
 )
 
+const MaxSelectionPromptBytes = 200000
+
+func ValidSelectionPrompt(text string) bool {
+	return strings.TrimSpace(text) != "" && len(text) <= MaxSelectionPromptBytes
+}
+
 type SelectionButton struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
@@ -56,7 +62,7 @@ func validateSelection(s *SelectionSettings) error {
 			return errors.New("划词按钮 ID 无效或重复")
 		}
 		seen[b.ID] = true
-		if strings.TrimSpace(b.Name) == "" || len([]rune(b.Name)) > 30 || strings.TrimSpace(b.Template) == "" || len(b.Template) > 200000 {
+		if strings.TrimSpace(b.Name) == "" || len([]rune(b.Name)) > 30 || strings.TrimSpace(b.Template) == "" || len(b.Template) > MaxSelectionPromptBytes {
 			return errors.New("划词按钮需填写名称（最多 30 字）和提示词（最多 200000 字节）")
 		}
 	}
@@ -66,7 +72,7 @@ func validateSelection(s *SelectionSettings) error {
 // SubmitSelection atomically persists a distinct first submission. It never
 // promotes or clears the shared composer, and starts delivery only after commit.
 func (e *Engine) SubmitSelection(text string) (string, error) {
-	if strings.TrimSpace(text) == "" || len(text) > 200000 {
+	if !ValidSelectionPrompt(text) {
 		return "", errors.New("划词提示词为空或超过 200000 字节")
 	}
 	e.mu.Lock()

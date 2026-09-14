@@ -3,8 +3,27 @@
 #import <NaturalLanguage/NaturalLanguage.h>
 #import "selection_toolbar_darwin.h"
 extern void popchatSelectionClicked(char *payload);
+extern int popchatSelectionPromptValid(char *payload);
 extern void popchatSelectionPermissionChanged(void);
 
+static NSString *selectionTranslationLanguage(NSString *text) {
+ NSArray *languages=NSLocale.preferredLanguages;
+ NSString *system=languages.firstObject?:NSLocale.currentLocale.localeIdentifier;
+ NSString *base=[system componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"-_"]].firstObject;
+ NSString *detected=[NLLanguageRecognizer dominantLanguageForString:text];
+ if(![base isEqual:[detected componentsSeparatedByString:@"-"].firstObject])return system;
+ if(![base isEqual:@"en"])return @"en";
+ for(NSString *candidate in languages)if(![[candidate componentsSeparatedByString:@"-"].firstObject isEqual:@"en"])return candidate;
+ return nil;
+}
+static NSDictionary *selectionPayload(NSString *text, NSString *template, NSDate *date) {
+ return @{@"text":text,@"template":template?:@"",@"language":NSLocale.preferredLanguages.firstObject?:NSLocale.currentLocale.localeIdentifier,@"time":@((long long)(date.timeIntervalSince1970*1000)),@"timezone":NSTimeZone.localTimeZone.name,@"timezoneOffset":@([NSTimeZone.localTimeZone secondsFromGMTForDate:date])};
+}
+static BOOL validSelectionPayload(NSDictionary *payload) {
+ NSData *data=[NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
+ NSString *json=[[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]autorelease];
+ return popchatSelectionPromptValid((char *)json.UTF8String)!=0;
+}
 // All AX work is serialized away from AppKit; UI and generation state stay on
 // the main queue. No clipboard, OCR, or surrounding text is read.
 static id attr(AXUIElementRef element, CFStringRef key) {
@@ -63,7 +82,7 @@ static NSDictionary *captureSelection(pid_t pid) {
      text=parameter(node,CFSTR("AXStringForTextMarkerRange"),marker);
      bounds=parameter(node,CFSTR("AXBoundsForTextMarkerRange"),marker);
     }
-    if([text isKindOfClass:NSString.class]&&[text length]&&[text length]<=200000){
+    if([text isKindOfClass:NSString.class]&&[text length]){
      result[@"text"]=text;CGRect rect;
      if(bounds&&CFGetTypeID((CFTypeRef)bounds)==AXValueGetTypeID()&&AXValueGetValue((AXValueRef)bounds,kAXValueCGRectType,&rect)&&rect.size.width>0&&rect.size.height>0) result[@"bounds"]=[NSValue valueWithRect:NSRectFromCGRect(rect)];
      break;
@@ -164,7 +183,19 @@ static NSDictionary *captureSelection(pid_t pid) {
  NSPoint anchor=mouse;id bounds=self.captured[@"bounds"];
  if(bounds){NSRect r=[bounds rectValue];anchor=NSMakePoint(NSMinX(r),NSMaxY(NSScreen.screens.firstObject.frame)-NSMaxY(r));}
  NSScreen *screen=NSScreen.mainScreen;for(NSScreen *s in NSScreen.screens)if(NSPointInRect(anchor,s.frame)){screen=s;break;}
- NSView *toolbar = popchatSelectionToolbar(self.config[@"buttons"],
+ NSMutableArray *buttons=[NSMutableArray array];
+ for(NSDictionary *button in self.config[@"buttons"]) {
+  NSMutableDictionary *item=[[button mutableCopy] autorelease];
+  NSString *template=button[@"template"];
+  if([button[@"defaultTranslation"] boolValue]) {
+   NSString *language=selectionTranslationLanguage(self.captured[@"text"])?:@"zh-Hans";
+   template=[template stringByReplacingOccurrencesOfString:@"{{language}}" withString:language];
+  }
+  if(!validSelectionPayload(selectionPayload(self.captured[@"text"],template,NSDate.date)))
+   item[@"disabledReason"]=@"生成的提示词为空或超过 200000 字节，请缩短选区或修改模板";
+  [buttons addObject:item];
+ }
+ NSView *toolbar = popchatSelectionToolbar(buttons,
      MIN(520, screen.visibleFrame.size.width-16), self, @selector(click:));
  CGFloat width = toolbar.frame.size.width, height = toolbar.frame.size.height;
  NSRect visible=screen.visibleFrame;CGFloat px=MIN(MAX(anchor.x,NSMinX(visible)+4),NSMaxX(visible)-width-4);
@@ -182,25 +213,21 @@ static NSDictionary *captureSelection(pid_t pid) {
  NSArray *languages=NSLocale.preferredLanguages;NSString *language=languages.firstObject?:NSLocale.currentLocale.localeIdentifier;
  NSString *systemLanguage=language;
  if([button[@"defaultTranslation"] boolValue]){
-  NSString *detected=[NLLanguageRecognizer dominantLanguageForString:text];
-  NSString *base=[[language componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"-_"]] firstObject];
-  NSString *detectedBase=[[detected componentsSeparatedByString:@"-"] firstObject];
-  if([base isEqual:detectedBase]){
-   if(![base isEqual:@"en"])language=@"en";
-   else {
-    language=nil;for(NSString *candidate in languages){if(![[candidate componentsSeparatedByString:@"-"].firstObject isEqual:@"en"]){language=candidate;break;}}
-    if(!language){
-     [self hide];NSAlert *alert=[[[NSAlert alloc]init]autorelease];alert.messageText=@"选择翻译目标语言";
-     NSComboBox *input=[[[NSComboBox alloc]initWithFrame:NSMakeRect(0,0,260,28)]autorelease];[input addItemsWithObjectValues:@[@"zh-Hans",@"ja",@"ko",@"fr",@"de",@"es"]];input.stringValue=@"zh-Hans";alert.accessoryView=input;[alert addButtonWithTitle:@"翻译"];[alert addButtonWithTitle:@"取消"];
-     [NSApp activateIgnoringOtherApps:YES];if([alert runModal]!=NSAlertFirstButtonReturn)return;
-     language=[input.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];if(!language.length)return;
-    }
-   }
+  language=selectionTranslationLanguage(text);
+  if(!language){
+   [self hide];NSAlert *alert=[[[NSAlert alloc]init]autorelease];alert.messageText=@"选择翻译目标语言";
+   NSComboBox *input=[[[NSComboBox alloc]initWithFrame:NSMakeRect(0,0,260,28)]autorelease];[input addItemsWithObjectValues:@[@"zh-Hans",@"ja",@"ko",@"fr",@"de",@"es"]];input.stringValue=@"zh-Hans";alert.accessoryView=input;[alert addButtonWithTitle:@"翻译"];[alert addButtonWithTitle:@"取消"];
+   [NSApp activateIgnoringOtherApps:YES];if([alert runModal]!=NSAlertFirstButtonReturn)return;
+   language=[input.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];if(!language.length)return;
   }
  }
+
  NSString *template=button[@"template"];
  if([button[@"defaultTranslation"] boolValue])template=[template stringByReplacingOccurrencesOfString:@"{{language}}" withString:language];
  NSDictionary *payload=@{@"text":text,@"template":template,@"language":systemLanguage,@"time":@((long long)(clicked.timeIntervalSince1970*1000)),@"timezone":timezone,@"timezoneOffset":@([NSTimeZone.localTimeZone secondsFromGMTForDate:clicked])};
+ if(!validSelectionPayload(payload)) {
+  NSAlert *alert=[[[NSAlert alloc]init]autorelease];alert.messageText=@"生成的提示词为空或超过 200000 字节";alert.informativeText=@"请缩短选区或修改按钮模板。";[alert runModal];return;
+ }
  NSData *data=[NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];NSString *json=[[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]autorelease];
  [self hide];popchatSelectionClicked((char*)json.UTF8String);
 }

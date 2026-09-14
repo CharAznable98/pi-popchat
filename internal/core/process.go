@@ -36,6 +36,9 @@ func recordTool(s *Session, ev map[string]any) {
 		return
 	}
 	for i := len(s.Messages) - 1; i >= 0; i-- {
+		if s.Messages[i].Role != "user" {
+			continue
+		}
 		for j := range s.Messages[i].Steps {
 			step := &s.Messages[i].Steps[j]
 			if step.ID == tid {
@@ -53,6 +56,7 @@ func recordTool(s *Session, ev map[string]any) {
 				return
 			}
 		}
+		break // Tool IDs are scoped to the current user turn.
 	}
 	for i := len(s.Messages) - 1; i >= 0; i-- {
 		if s.Messages[i].Role == "user" {

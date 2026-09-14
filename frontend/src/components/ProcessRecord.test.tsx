@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import { ProcessRecord, groupSteps, type Step } from "./ProcessRecord";
+import {
+  AgentProgress,
+  ProcessRecord,
+  groupSteps,
+  type Step,
+} from "./ProcessRecord";
 afterEach(cleanup);
 const step = (id: string, action: string, status = "completed"): Step => ({
   id,
@@ -41,4 +46,43 @@ it("collapses completed records, exposes failures and object details", () => {
   expect(screen.getByText("synthetic-1")).toBeTruthy();
   rerender(<ProcessRecord message={message} active={false} failed={true} />);
   expect(screen.getByText("synthetic-1")).toBeTruthy();
+});
+
+it("counts from actual dispatch and excludes time spent queued", () => {
+  const clock = Date.now();
+  render(
+    <AgentProgress
+      status="running"
+      messages={[
+        {
+          id: "q",
+          role: "user",
+          text: "synthetic",
+          status: "sending",
+          createdAt: new Date(clock - 600000).toISOString(),
+          deliveryStartedAt: new Date(clock - 2000).toISOString(),
+          attachments: [],
+        },
+      ]}
+    />,
+  );
+  expect(screen.getByText("等待 Agent 响应 · 2 秒")).toBeTruthy();
+});
+it("does not show a fabricated elapsed time before dispatch", () => {
+  render(
+    <AgentProgress
+      status="starting"
+      messages={[
+        {
+          id: "q",
+          role: "user",
+          text: "synthetic",
+          status: "sending",
+          createdAt: "2000-01-01T00:00:00Z",
+          attachments: [],
+        },
+      ]}
+    />,
+  );
+  expect(screen.getByText("正在准备投递")).toBeTruthy();
 });

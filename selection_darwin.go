@@ -60,15 +60,8 @@ func stopSelection() {
 
 //export popchatSelectionClicked
 func popchatSelectionClicked(payload *C.char) {
-	var v struct {
-		Text           string `json:"text"`
-		Template       string `json:"template"`
-		Language       string `json:"language"`
-		Time           int64  `json:"time"`
-		Timezone       string `json:"timezone"`
-		TimezoneOffset int    `json:"timezoneOffset"`
-	}
-	if json.Unmarshal([]byte(C.GoString(payload)), &v) != nil {
+	v, ok := decodeSelectionPayload(payload)
+	if !ok {
 		return
 	}
 	selectionMu.RLock()
@@ -80,12 +73,8 @@ func popchatSelectionClicked(payload *C.char) {
 	// Capture placement before showing or activating any conversation window.
 	screen := mouseScreen()
 	go func() {
-		location, err := time.LoadLocation(v.Timezone)
-		if err != nil {
-			location = time.FixedZone(v.Timezone, v.TimezoneOffset)
-		}
-		prompt := core.RenderSelection(v.Template, v.Text, v.Language, time.UnixMilli(v.Time).In(location))
-		if _, err = d.engine.SubmitSelection(prompt); err != nil {
+		prompt := selectionPrompt(v)
+		if _, err := d.engine.SubmitSelection(prompt); err != nil {
 			d.setError(err.Error())
 			return
 		}
@@ -101,4 +90,35 @@ func popchatSelectionPermissionChanged() {
 	if d != nil {
 		go d.app.Event.Emit("popchat:changed")
 	}
+}
+
+type selectionPayload struct {
+	Text           string `json:"text"`
+	Template       string `json:"template"`
+	Language       string `json:"language"`
+	Time           int64  `json:"time"`
+	Timezone       string `json:"timezone"`
+	TimezoneOffset int    `json:"timezoneOffset"`
+}
+
+func decodeSelectionPayload(payload *C.char) (selectionPayload, bool) {
+	var v selectionPayload
+	err := json.Unmarshal([]byte(C.GoString(payload)), &v)
+	return v, err == nil
+}
+func selectionPrompt(v selectionPayload) string {
+	location, err := time.LoadLocation(v.Timezone)
+	if err != nil {
+		location = time.FixedZone(v.Timezone, v.TimezoneOffset)
+	}
+	return core.RenderSelection(v.Template, v.Text, v.Language, time.UnixMilli(v.Time).In(location))
+}
+
+//export popchatSelectionPromptValid
+func popchatSelectionPromptValid(payload *C.char) C.int {
+	v, ok := decodeSelectionPayload(payload)
+	if ok && core.ValidSelectionPrompt(selectionPrompt(v)) {
+		return 1
+	}
+	return 0
 }

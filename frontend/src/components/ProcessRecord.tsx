@@ -104,6 +104,8 @@ export function AgentProgress({
       (m) => m.role === "assistant" && m.status === "sending" && m.text,
     )
       ? "正在生成回答"
-      : `等待 Agent 响应 · ${Math.max(0, Math.floor((tick - Date.parse(messages[lastUser]?.createdAt ?? new Date(tick).toISOString())) / 1000))} 秒`;
+      : messages[lastUser]?.deliveryStartedAt
+        ? `等待 Agent 响应 · ${Math.max(0, Math.floor((tick - Date.parse(messages[lastUser].deliveryStartedAt!)) / 1000))} 秒`
+        : "正在准备投递";
   return <>{label}</>;
 }

@@ -110,7 +110,8 @@ NSView *popchatSelectionToolbar(NSArray<NSDictionary *> *buttons,
         button.bordered = NO;
         button.buttonType = NSButtonTypeMomentaryChange;
         button.focusRingType = NSFocusRingTypeNone;
-        button.toolTip = name;
+        button.enabled = ![item[@"disabledReason"] length];
+        button.toolTip = item[@"disabledReason"] ?: name;
         button.accessibilityLabel = name;
         NSString *identifier = item[@"id"];
         button.symbolName = [identifier isEqualToString:@"translate"] ? @"character.bubble" :

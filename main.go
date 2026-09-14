@@ -111,7 +111,7 @@ func main() {
 		}
 		d.showMain()
 	})
-	d.engine.Changed = func() { app.Event.Emit("popchat:changed") }
+	d.engine.SetChangedCallback(func() { app.Event.Emit("popchat:changed") })
 	d.engine.Notify = d.notify
 	appMenu := app.Menu.New()
 	appMenu.AddRole(application.AppMenu)

@@ -598,6 +598,7 @@ export function App() {
           </div>
         )}
         {snapshot?.settings.selection?.enabled &&
+          snapshot.settings.selection.buttons.length > 0 &&
           snapshot.selectionPermission === false && (
             <div className="setup" role="status">
               <strong>划词工具条尚未生效</strong>

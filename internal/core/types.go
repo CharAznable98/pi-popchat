@@ -14,14 +14,15 @@ type Attachment struct {
 	Preview string `json:"preview,omitempty"`
 }
 type Message struct {
-	Steps       []ProcessStep `json:"steps"`
-	AgentKey    string        `json:"agentKey,omitempty"`
-	ID          string        `json:"id"`
-	Role        string        `json:"role"`
-	Text        string        `json:"text"`
-	Status      string        `json:"status"`
-	CreatedAt   string        `json:"createdAt"`
-	Attachments []Attachment  `json:"attachments"`
+	DeliveryStartedAt string        `json:"deliveryStartedAt,omitempty"`
+	Steps             []ProcessStep `json:"steps"`
+	AgentKey          string        `json:"agentKey,omitempty"`
+	ID                string        `json:"id"`
+	Role              string        `json:"role"`
+	Text              string        `json:"text"`
+	Status            string        `json:"status"`
+	CreatedAt         string        `json:"createdAt"`
+	Attachments       []Attachment  `json:"attachments"`
 }
 type Interaction struct {
 	ID           string   `json:"id"`
@@ -42,34 +43,36 @@ type Command struct {
 	Source      string `json:"source"`
 }
 type Session struct {
-	DraftOnly        bool         `json:"draftOnly"`
-	CWDSource        string       `json:"cwdSource,omitempty"`
-	ManagedWorkspace bool         `json:"managedWorkspace"`
-	DraftRevision    uint64       `json:"draftRevision"`
-	DraftAttachments []Attachment `json:"draftAttachments"`
-	ID               string       `json:"id"`
-	Title            string       `json:"title"`
-	AgentTitle       string       `json:"agentTitle"`
-	TitleWritable    bool         `json:"titleWritable"`
-	Pinned           bool         `json:"pinned"`
-	CWD              string       `json:"cwd"`
-	CreatedAt        string       `json:"createdAt"`
-	UpdatedAt        string       `json:"updatedAt"`
-	Status           string       `json:"status"`
-	Error            string       `json:"error"`
-	Draft            string       `json:"draft"`
-	Messages         []Message    `json:"messages"`
-	Queue            []Message    `json:"queue"`
-	QueuePaused      bool         `json:"queuePaused"`
-	Interaction      *Interaction `json:"interaction"`
-	ModelsState      string       `json:"modelsState"`
-	ModelsError      string       `json:"modelsError"`
-	Models           []Model      `json:"models"`
-	Model            string       `json:"model"`
-	Commands         []Command    `json:"commands"`
-	SearchableText   string       `json:"searchableText"`
-	SessionFile      string       `json:"sessionFile"`
-	Provider         string       `json:"provider"`
+	titleRevision     uint64
+	titleReadRevision uint64
+	DraftOnly         bool         `json:"draftOnly"`
+	CWDSource         string       `json:"cwdSource,omitempty"`
+	ManagedWorkspace  bool         `json:"managedWorkspace"`
+	DraftRevision     uint64       `json:"draftRevision"`
+	DraftAttachments  []Attachment `json:"draftAttachments"`
+	ID                string       `json:"id"`
+	Title             string       `json:"title"`
+	AgentTitle        string       `json:"agentTitle"`
+	TitleWritable     bool         `json:"titleWritable"`
+	Pinned            bool         `json:"pinned"`
+	CWD               string       `json:"cwd"`
+	CreatedAt         string       `json:"createdAt"`
+	UpdatedAt         string       `json:"updatedAt"`
+	Status            string       `json:"status"`
+	Error             string       `json:"error"`
+	Draft             string       `json:"draft"`
+	Messages          []Message    `json:"messages"`
+	Queue             []Message    `json:"queue"`
+	QueuePaused       bool         `json:"queuePaused"`
+	Interaction       *Interaction `json:"interaction"`
+	ModelsState       string       `json:"modelsState"`
+	ModelsError       string       `json:"modelsError"`
+	Models            []Model      `json:"models"`
+	Model             string       `json:"model"`
+	Commands          []Command    `json:"commands"`
+	SearchableText    string       `json:"searchableText"`
+	SessionFile       string       `json:"sessionFile"`
+	Provider          string       `json:"provider"`
 
 	// Transient lifecycle state; not part of persisted or frontend state.
 	deleting           bool

@@ -1,9 +1,11 @@
 // Regression: dispatch ordinary input through the production local monitor.
 // No synthetic OS input is posted and no user window or Agent is opened.
 #import <AppKit/AppKit.h>
+#import "../selection_toolbar_darwin.h"
 extern void popchatSelectionConfigure(const char *json);
 extern void popchatSelectionStop(void);
 void popchatSelectionClicked(char *payload) {}
+int popchatSelectionPromptValid(char *payload) {return 1;}
 void popchatSelectionPermissionChanged(void) {}
 
 int main(void) {
@@ -33,6 +35,11 @@ int main(void) {
   } @catch (NSException *error) {
    fprintf(stderr, "FAIL Escape: %s\n", error.reason.UTF8String);
    return 1;
+  }
+  NSView *toolbar=popchatSelectionToolbar(@[@{@"name":@"超限",@"disabledReason":@"提示词超过上限"},@{@"name":@"有效"}],520,nil,NULL);
+  NSButton *invalid=toolbar.subviews[0],*valid=toolbar.subviews[1];
+  if(invalid.enabled || !valid.enabled || ![invalid.toolTip isEqual:@"提示词超过上限"]) {
+   fputs("FAIL: invalid selection action remained clickable\n",stderr);return 1;
   }
   popchatSelectionStop();
   puts("PASS: production selection monitor accepts mouse down/up/right-click and Escape");

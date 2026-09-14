@@ -100,9 +100,7 @@ func TestPiTitleAuthorityRenameAndRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restored.Close()
-	if restored.Snapshot("main").Current.Title != "Pi on disk" {
-		t.Fatal("local cache overrode Pi on restart")
-	}
+	acceptanceEventually(t, func() bool { return restored.Snapshot("main").Current.Title == "Pi on disk" }, "local cache overrode Pi on restart")
 }
 
 func TestStaleStateCannotOverwriteNewerTitleEvent(t *testing.T) {

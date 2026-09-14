@@ -33,24 +33,26 @@ type delivery struct {
 	cancel context.CancelFunc
 }
 type Engine struct {
-	deliveries  map[string]delivery
-	committed   map[string][]byte
-	wg          sync.WaitGroup
-	mu          sync.Mutex
-	store       *Store
-	factory     agent.Factory
-	executable  string
-	sessions    map[string]*Session
-	runtimes    map[string]*runtime
-	selected    map[string]string
-	hiddenAt    time.Time
-	settings    Settings
-	environment Environment
-	version     uint64
-	lastError   string
-	closing     bool
-	Changed     func()
-	Notify      func(string, string, string)
+	titleContext context.Context
+	cancelTitles context.CancelFunc
+	deliveries   map[string]delivery
+	committed    map[string][]byte
+	wg           sync.WaitGroup
+	mu           sync.Mutex
+	store        *Store
+	factory      agent.Factory
+	executable   string
+	sessions     map[string]*Session
+	runtimes     map[string]*runtime
+	selected     map[string]string
+	hiddenAt     time.Time
+	settings     Settings
+	environment  Environment
+	version      uint64
+	lastError    string
+	closing      bool
+	changed      func()
+	Notify       func(string, string, string)
 }
 
 func New(store *Store, factory agent.Factory, executable string) (*Engine, error) {
@@ -66,6 +68,7 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 		all = append(all, draft)
 	}
 	e := &Engine{store: store, factory: factory, executable: executable, sessions: map[string]*Session{}, deliveries: map[string]delivery{}, committed: map[string][]byte{}, runtimes: map[string]*runtime{}, selected: map[string]string{}, settings: Settings{Shortcut: "Alt+Space"}, version: 1}
+	e.titleContext, e.cancelTitles = context.WithCancel(context.Background())
 	_ = store.Get("settings", &e.settings)
 	if e.settings.Selection == nil {
 		e.settings.Selection = DefaultSelectionSettings()
@@ -85,7 +88,6 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 		finishSteps(s, "interrupted")
 		s.AgentTitle = ""
 		s.Title = fallbackTitle(s)
-		e.refreshTitleFileLocked(s)
 		s.ModelsState = ""
 		s.ModelsError = ""
 		if busy(s.Status) {
@@ -110,6 +112,19 @@ func New(store *Store, factory agent.Factory, executable string) (*Engine, error
 			return nil, err
 		}
 	}
+	// Restore metadata after startup without serial filesystem reads blocking New.
+	e.mu.Lock()
+	_, hasTitleReader := factory.(agent.SessionInfoReader)
+	for offset := 0; hasTitleReader && offset < min(4, len(all)); offset++ {
+		e.wg.Add(1)
+		go func(offset int) {
+			defer e.wg.Done()
+			for i := offset; i < len(all); i += 4 {
+				e.refreshTitleFile(all[i].ID, true)
+			}
+		}(offset)
+	}
+	e.mu.Unlock()
 	return e, nil
 }
 
@@ -124,10 +139,15 @@ func (e *Engine) sessionLocked(sid string) *Session {
 }
 
 func (e *Engine) Root() string { return e.store.Root }
+func (e *Engine) SetChangedCallback(fn func()) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.changed = fn
+}
 func (e *Engine) changedLocked() {
 	e.version++
-	if e.Changed != nil {
-		go e.Changed()
+	if e.changed != nil {
+		go e.changed()
 	}
 }
 func (e *Engine) saveLocked(s *Session) error {
@@ -628,6 +648,7 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 		return err
 	}
 	m.Status = "sending"
+	m.DeliveryStartedAt = ""
 	s.Messages = append(s.Messages, m)
 	s.Status = "starting"
 	s.Error = ""
@@ -680,6 +701,7 @@ func (e *Engine) advanceIdleQueueLocked(sid string) {
 	m := s.Queue[0]
 	s.Queue = s.Queue[1:]
 	m.Status = "sending"
+	m.DeliveryStartedAt = ""
 	s.Messages = append(s.Messages, m)
 	s.Status = "starting"
 	if e.saveLocked(s) == nil {
@@ -744,6 +766,24 @@ func (e *Engine) deliver(ctx context.Context, sid string, m Message, kind string
 	if len(images) > 0 {
 		cmd["images"] = images
 	}
+	// Start elapsed time at actual dispatch, after queueing and preparation.
+	e.mu.Lock()
+	current = e.sessionLocked(sid)
+	if current == nil || e.closing || ctx.Err() != nil || current.Status == "stopped" || current.Status == "interrupted" {
+		e.mu.Unlock()
+		return
+	}
+	for i := range current.Messages {
+		if current.Messages[i].ID == m.ID {
+			current.Messages[i].DeliveryStartedAt = now()
+			break
+		}
+	}
+	if err = e.saveLocked(current); err != nil {
+		e.mu.Unlock()
+		return
+	}
+	e.mu.Unlock()
 	_, err = c.Request(ctx, cmd)
 	if err != nil {
 		if ctx.Err() == nil {
@@ -998,6 +1038,7 @@ func (e *Engine) QueueAction(sid, action, mid string) error {
 			m := s.Queue[0]
 			s.Queue = s.Queue[1:]
 			m.Status = "sending"
+			m.DeliveryStartedAt = ""
 			s.Messages = append(s.Messages, m)
 			s.Status = "starting"
 			s.Error = ""
@@ -1036,6 +1077,7 @@ func (e *Engine) QueueAction(sid, action, mid string) error {
 		s.Status = "starting"
 	}
 	m.Status = "sending"
+	m.DeliveryStartedAt = ""
 	s.Messages = append(s.Messages, m)
 	err := e.saveLocked(s)
 	if err == nil {
@@ -1159,6 +1201,9 @@ func (e *Engine) SetModel(sid, provider, model string) error {
 func (e *Engine) Close() error {
 	e.mu.Lock()
 	e.closing = true
+	if e.cancelTitles != nil {
+		e.cancelTitles()
+	}
 	for _, d := range e.deliveries {
 		d.cancel()
 	}

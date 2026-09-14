@@ -35,28 +35,19 @@ func recordTool(s *Session, ev map[string]any) {
 	if tid == "" {
 		return
 	}
-	for i := len(s.Messages) - 1; i >= 0; i-- {
-		if s.Messages[i].Role != "user" {
-			continue
+	if step := matchingToolStep(s, tid); step != nil {
+		if str(ev["type"]) == "tool_execution_start" {
+			step.Status = "running"
+			step.StartedAt = now()
 		}
-		for j := range s.Messages[i].Steps {
-			step := &s.Messages[i].Steps[j]
-			if step.ID == tid {
-				if str(ev["type"]) == "tool_execution_start" {
-					step.Status = "running"
-					step.StartedAt = now()
-				}
-				if str(ev["type"]) == "tool_execution_end" {
-					step.Status = "completed"
-					if failed, _ := ev["isError"].(bool); failed {
-						step.Status = "failed"
-					}
-					step.EndedAt = now()
-				}
-				return
+		if str(ev["type"]) == "tool_execution_end" {
+			step.Status = "completed"
+			if failed, _ := ev["isError"].(bool); failed {
+				step.Status = "failed"
 			}
+			step.EndedAt = now()
 		}
-		break // Tool IDs are scoped to the current user turn.
+		return
 	}
 	for i := len(s.Messages) - 1; i >= 0; i-- {
 		if s.Messages[i].Role == "user" {
@@ -78,6 +69,34 @@ func recordTool(s *Session, ev map[string]any) {
 		}
 	}
 }
+
+// Unfinished steps belong to the active execution: settlement, process exit and
+// restoration finalize them. A steer insertion must not change their owner.
+// Finalized IDs may only match the latest user message, never an earlier turn.
+func matchingToolStep(s *Session, tid string) *ProcessStep {
+	var latestMatch *ProcessStep
+	latestUser := true
+	for i := len(s.Messages) - 1; i >= 0; i-- {
+		if s.Messages[i].Role != "user" {
+			continue
+		}
+		for j := range s.Messages[i].Steps {
+			step := &s.Messages[i].Steps[j]
+			if step.ID != tid {
+				continue
+			}
+			if step.Status == "pending" || step.Status == "running" {
+				return step
+			}
+			if latestUser {
+				latestMatch = step
+			}
+		}
+		latestUser = false
+	}
+	return latestMatch
+}
+
 func finishSteps(s *Session, status string) {
 	for i := range s.Messages {
 		for j := range s.Messages[i].Steps {

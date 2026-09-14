@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"pi-popchat/internal/agent"
 	"strings"
 	"testing"
@@ -13,6 +14,51 @@ func TestReviewToolIDReuseKeepsPreviousTurn(t *testing.T) {
 	recordTool(s, map[string]any{"type": "tool_execution_start", "toolCallId": "same", "toolName": "read", "args": map[string]any{"path": "new"}})
 	if s.Messages[0].Steps[0].Status != "completed" || s.Messages[0].Steps[0].EndedAt != "old time" || len(s.Messages[1].Steps) != 1 {
 		t.Fatal("tool ID reuse overwrote history")
+	}
+}
+
+func TestReviewInsertedMessageKeepsActiveToolOwner(t *testing.T) {
+	for _, pending := range []bool{false, true} {
+		t.Run(fmt.Sprintf("pending=%v", pending), func(t *testing.T) {
+			e, f := acceptanceEngine(t)
+			sid, c := acceptanceStart(t, e, f, "main")
+			if pending {
+				c.emit("message_end", map[string]any{"message": map[string]any{"role": "assistant", "content": []any{map[string]any{"type": "toolCall", "id": "active", "name": "read"}}}})
+			} else {
+				c.emit("tool_execution_start", map[string]any{"toolCallId": "active", "toolName": "read"})
+			}
+			acceptanceEventually(t, func() bool { return len(e.Snapshot("main").Current.Messages[0].Steps) == 1 }, "tool did not start")
+			if err := e.Send(sid, "synthetic insertion", "inserted", nil); err != nil {
+				t.Fatal(err)
+			}
+			if err := e.QueueAction(sid, "insert", "inserted"); err != nil {
+				t.Fatal(err)
+			}
+			if cmd := acceptanceCall(t, c, "prompt"); cmd["streamingBehavior"] != "steer" {
+				t.Fatal(cmd)
+			}
+			if pending {
+				c.emit("tool_execution_start", map[string]any{"toolCallId": "active", "toolName": "read"})
+			}
+			c.emit("tool_execution_end", map[string]any{"toolCallId": "active", "toolName": "read", "isError": pending})
+			c.emit("tool_execution_start", map[string]any{"toolCallId": "new", "toolName": "read"})
+			c.emit("tool_execution_end", map[string]any{"toolCallId": "new", "toolName": "read"})
+			c.emit("agent_settled", nil)
+			acceptanceEventually(t, func() bool { return e.Snapshot("main").Current.Status == "idle" }, "agent did not settle")
+			s := e.Snapshot("main").Current
+			want := "completed"
+			if pending {
+				want = "failed"
+			}
+			if steps := s.Messages[0].Steps; len(steps) != 1 || steps[0].Status != want || steps[0].EndedAt == "" {
+				t.Fatalf("original tool lost its owner: %+v", steps)
+			}
+			for _, m := range s.Messages {
+				if m.ID == "inserted" && (len(m.Steps) != 1 || m.Steps[0].ID != "new" || m.Steps[0].Status != "completed") {
+					t.Fatalf("inserted message must own only the new tool: %+v", m.Steps)
+				}
+			}
+		})
 	}
 }
 

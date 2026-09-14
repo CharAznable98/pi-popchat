@@ -34,14 +34,40 @@ func DefaultSelectionSettings() *SelectionSettings {
 
 var templateVariable = regexp.MustCompile(`\{\{([a-zA-Z_]+)\}\}`)
 
+// RenderSelection returns an empty (invalid) prompt if expansion exceeds the
+// byte limit. Never truncate a prompt or allocate the full oversized expansion.
 func RenderSelection(template, text, language string, at time.Time) string {
 	vars := map[string]string{"text": text, "language": language, "date": at.Format("2006-01-02"), "time": at.Format("15:04:05"), "timezone": at.Location().String()}
-	return templateVariable.ReplaceAllStringFunc(template, func(token string) string {
-		if v, ok := vars[token[2:len(token)-2]]; ok {
-			return v
+	var out strings.Builder
+	appendPart := func(part string) bool {
+		if len(part) > MaxSelectionPromptBytes-out.Len() {
+			return false
 		}
-		return token
-	})
+		out.WriteString(part)
+		return true
+	}
+	for len(template) > 0 {
+		match := templateVariable.FindStringIndex(template)
+		if match == nil {
+			if !appendPart(template) {
+				return ""
+			}
+			break
+		}
+		if !appendPart(template[:match[0]]) {
+			return ""
+		}
+		token := template[match[0]:match[1]]
+		value, known := vars[token[2:len(token)-2]]
+		if !known {
+			value = token
+		}
+		if !appendPart(value) {
+			return ""
+		}
+		template = template[match[1]:]
+	}
+	return out.String()
 }
 func cloneSettings(s Settings) Settings {
 	b, _ := json.Marshal(s)

@@ -13,7 +13,11 @@ import "./style.css";
 import { InteractionCard } from "./components/AgentContent";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { Fragment } from "react";
-import { ProcessRecord, AgentProgress } from "./components/ProcessRecord";
+import {
+  ProcessRecord,
+  AgentProgress,
+  hasActiveSteps,
+} from "./components/ProcessRecord";
 import { MessageView } from "./components/MessageView";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { labels } from "./components/status";
@@ -687,8 +691,9 @@ export function App() {
                     message={m}
                     active={
                       busy &&
-                      current.messages.filter((x) => x.role === "user").at(-1)
-                        ?.id === m.id
+                      (hasActiveSteps(m) ||
+                        current.messages.filter((x) => x.role === "user").at(-1)
+                          ?.id === m.id)
                     }
                     failed={
                       current.status === "failed" &&

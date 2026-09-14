@@ -45,7 +45,7 @@ it("collapses completed records, exposes failures and object details", () => {
   fireEvent.click(screen.getByRole("button"));
   expect(screen.getByText("synthetic-1")).toBeTruthy();
   rerender(<ProcessRecord message={message} active={false} failed={true} />);
-  expect(screen.getByText("synthetic-1")).toBeTruthy();
+  expect(screen.getByText("synthetic-1").closest("details")?.open).toBe(true);
 });
 
 it("counts from actual dispatch and excludes time spent queued", () => {

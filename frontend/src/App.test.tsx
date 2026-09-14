@@ -448,3 +448,51 @@ it("does not request Accessibility permission when selection buttons are empty",
   expect(screen.queryByText("划词工具条尚未生效")).toBeNull();
   expect(screen.queryByRole("button", { name: "打开权限设置" })).toBeNull();
 });
+
+it.each(["running", "pending"])(
+  "插入消息后保留原消息的 %s 过程记录",
+  async (status) => {
+    const s = state();
+    s.current!.status = "running";
+    s.current!.messages = [
+      {
+        id: "original",
+        role: "user",
+        text: "synthetic original",
+        status: "accepted",
+        createdAt: "",
+        attachments: [],
+        steps: [
+          {
+            id: "tool",
+            action: "读取文件",
+            object: "synthetic.txt",
+            status,
+            startedAt: "",
+          },
+        ],
+      },
+      {
+        id: "inserted",
+        role: "user",
+        text: "synthetic insertion",
+        status: "accepted",
+        createdAt: "",
+        attachments: [],
+      },
+    ];
+    mock.snapshot.mockResolvedValue(s);
+    await setup();
+    expect(
+      screen
+        .getByRole("button", { name: /过程记录/ })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(document.querySelector(".working")?.textContent).toContain(
+      status === "pending" ? "等待执行：读取文件" : "读取文件",
+    );
+    expect(document.querySelector(".working")?.textContent).not.toContain(
+      "正在准备投递",
+    );
+  },
+);

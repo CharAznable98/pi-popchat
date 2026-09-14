@@ -196,3 +196,26 @@ func TestReviewResumedQueueUsesDispatchTime(t *testing.T) {
 		t.Fatal("submission and dispatch times conflated")
 	}
 }
+
+func TestReviewSelectionExpansionStopsAtByteLimit(t *testing.T) {
+	text := strings.Repeat("x", MaxSelectionPromptBytes)
+	if got := RenderSelection(strings.Repeat("{{text}}", 32), text, "en", time.Now()); got != "" {
+		t.Fatalf("oversized expansion must be rejected, got %d bytes", len(got))
+	}
+}
+
+func TestReviewSelectionBoundedRenderingPreservesSemantics(t *testing.T) {
+	for _, tc := range []struct{ name, template, text, want string }{
+		{"exact", "{{text}}", strings.Repeat("界", MaxSelectionPromptBytes/3) + "xx", strings.Repeat("界", MaxSelectionPromptBytes/3) + "xx"},
+		{"literal overflow", strings.Repeat("x", MaxSelectionPromptBytes+1), "", ""},
+		{"suffix overflow", "{{text}}!", strings.Repeat("x", MaxSelectionPromptBytes), ""},
+		{"unknown variable", "{{unknown}} {{text}}", "{{time}}", "{{unknown}} {{time}}"},
+		{"unused selection", "fixed", strings.Repeat("x", MaxSelectionPromptBytes+1), "fixed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := RenderSelection(tc.template, tc.text, "en", time.Now()); got != tc.want {
+				t.Fatalf("unexpected rendering: got %d bytes, want %d", len(got), len(tc.want))
+			}
+		})
+	}
+}

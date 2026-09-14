@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import type { Message, ProcessStep } from "../types";
 export type Step = ProcessStep;
+export function hasActiveSteps(message: Message): boolean {
+  return (
+    message.steps?.some(
+      (step) => step.status === "running" || step.status === "pending",
+    ) ?? false
+  );
+}
 export function groupSteps(steps: Step[]): Step[][] {
   const groups: Step[][] = [];
   for (const step of steps) {
@@ -53,7 +60,11 @@ export function ProcessRecord({
                   ? "interrupted"
                   : "completed";
           return (
-            <details key={group[0].id} className={`process-group ${status}`}>
+            <details
+              key={group[0].id}
+              className={`process-group ${status}`}
+              open={failed && group.some((step) => step.status === "failed")}
+            >
               <summary>
                 {group[0].action}
                 {group.length > 1 ? ` × ${group.length}` : ""}
@@ -95,10 +106,16 @@ export function AgentProgress({
     if (m.role === "user") lastUser = i;
   });
   const current = messages.slice(lastUser + 1);
-  const running = messages[lastUser]?.steps
-    ?.filter((s) => s.status === "running")
-    .at(-1);
-  let label = status === "retrying" ? "正在重试" : running?.action;
+  const steps = messages
+    .filter((m) => m.role === "user")
+    .flatMap((m) => m.steps ?? []);
+  const running = steps.filter((step) => step.status === "running").at(-1);
+  const pending = steps.filter((step) => step.status === "pending").at(-1);
+  let label =
+    status === "retrying"
+      ? "正在重试"
+      : (running?.action ??
+        (pending ? `等待执行：${pending.action}` : undefined));
   if (!label)
     label = current.some(
       (m) => m.role === "assistant" && m.status === "sending" && m.text,

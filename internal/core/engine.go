@@ -779,10 +779,9 @@ func (e *Engine) deliver(ctx context.Context, sid string, m Message, kind string
 			break
 		}
 	}
-	if err = e.saveLocked(current); err != nil {
-		e.mu.Unlock()
-		return
-	}
+	// This display timestamp must not add a second persistence gate after the
+	// submission was committed. Persist it with the request outcome below.
+	e.changedLocked()
 	e.mu.Unlock()
 	_, err = c.Request(ctx, cmd)
 	if err != nil {

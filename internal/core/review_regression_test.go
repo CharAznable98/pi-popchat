@@ -219,3 +219,57 @@ func TestReviewSelectionBoundedRenderingPreservesSemantics(t *testing.T) {
 		})
 	}
 }
+
+func TestReviewFirstSettlementRefreshesTitleWritable(t *testing.T) {
+	store, _ := OpenStore(t.TempDir())
+	f := &titleFactory{}
+	e, _ := New(store, f, "synthetic")
+	defer e.Close()
+	sid, _ := e.NewSession("main", "")
+	if _, err := e.ensure(sid); err != nil {
+		t.Fatal(err)
+	}
+	c := f.client
+	if err := e.Send(sid, "synthetic first", "first", nil); err != nil {
+		t.Fatal(err)
+	}
+	acceptanceCall(t, c.acceptanceClient, "prompt")
+	acceptanceEventually(t, func() bool { e.mu.Lock(); defer e.mu.Unlock(); return len(e.deliveries) == 0 }, "delivery did not finish")
+	e.refreshTitleFile(sid, false)
+	if e.Snapshot("main").Current.TitleWritable {
+		t.Fatal("missing file was writable")
+	}
+	f.mu.Lock()
+	f.persisted = true
+	f.mu.Unlock()
+	c.emit("agent_settled", nil)
+	acceptanceEventually(t, func() bool { return e.Snapshot("main").Current.TitleWritable }, "first settled reply did not enable rename")
+}
+
+func TestReviewDispatchTimerDoesNotAddPersistenceGate(t *testing.T) {
+	e, f := acceptanceEngine(t)
+	sid, _ := e.NewSession("main", "")
+	if _, err := e.ensure(sid); err != nil {
+		t.Fatal(err)
+	}
+	c := <-f.starts
+	m := Message{ID: "unsent", Role: "user", Text: "synthetic unsent", Status: "sending", CreatedAt: now()}
+	e.mu.Lock()
+	s := e.sessions[sid]
+	s.DraftOnly = false
+	s.Status = "starting"
+	s.Messages = append(s.Messages, m)
+	err := e.saveLocked(s)
+	e.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.store.db.Exec("PRAGMA query_only=ON"); err != nil {
+		t.Fatal(err)
+	}
+	defer e.store.db.Exec("PRAGMA query_only=OFF")
+	e.deliver(context.Background(), sid, m, "prompt")
+	if cmd := acceptanceCall(t, c, "prompt"); cmd["message"] != "synthetic unsent" {
+		t.Fatal(cmd)
+	}
+}

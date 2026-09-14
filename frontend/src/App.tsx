@@ -697,8 +697,8 @@ export function App() {
                     }
                     failed={
                       current.status === "failed" &&
-                      current.messages.filter((x) => x.role === "user").at(-1)
-                        ?.id === m.id
+                      (m.steps?.some((step) => step.status === "failed") ??
+                        false)
                     }
                   />
                 )}

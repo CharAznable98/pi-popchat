@@ -496,3 +496,65 @@ it.each(["running", "pending"])(
     );
   },
 );
+
+it("插入消息后最终失败会展开实际失败消息及其对象", async () => {
+  const s = state(40);
+  s.current!.status = "running";
+  s.current!.messages = [
+    {
+      id: "original",
+      role: "user",
+      text: "synthetic original",
+      status: "accepted",
+      createdAt: "",
+      attachments: [],
+      steps: [
+        {
+          id: "tool",
+          action: "读取文件",
+          object: "synthetic-failure.txt",
+          status: "running",
+          startedAt: "",
+        },
+      ],
+    },
+    {
+      id: "inserted",
+      role: "user",
+      text: "synthetic insertion",
+      status: "accepted",
+      createdAt: "",
+      attachments: [],
+      steps: [
+        {
+          id: "success",
+          action: "列出目录",
+          object: "synthetic-success",
+          status: "completed",
+          startedAt: "",
+        },
+      ],
+    },
+  ];
+  mock.snapshot.mockResolvedValue(s);
+  await setup();
+  const settled = structuredClone(s);
+  settled.version++;
+  settled.current!.status = "failed";
+  settled.current!.messages[0].steps![0].status = "failed";
+  mock.snapshot.mockResolvedValue(settled);
+  await act(async () => {
+    mock.listener();
+  });
+  await waitFor(() => {
+    const object = screen.getByText("synthetic-failure.txt");
+    expect(object.closest("details")?.open).toBe(true);
+    expect(
+      object
+        .closest("section")
+        ?.querySelector("button")
+        ?.getAttribute("aria-expanded"),
+    ).toBe("true");
+  });
+  expect(screen.queryByText("synthetic-success")).toBeNull();
+});

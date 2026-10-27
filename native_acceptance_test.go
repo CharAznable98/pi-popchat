@@ -9,6 +9,7 @@ import (
 	"pi-popchat/internal/core"
 	"sync"
 	"testing"
+	"time"
 )
 
 // An in-flight desktop Refresh can finish after OnShutdown has closed the store.
@@ -40,6 +41,61 @@ func TestNativeAcceptanceCallbacksAfterShutdown(t *testing.T) {
 	}
 	if err = engine.Select("main", sid); err == nil {
 		t.Error("notification selection after shutdown falsely succeeds")
+	}
+}
+
+func TestNativeAppliedHideDoesNotExpireSelectionSession(t *testing.T) {
+	store, err := core.OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine, err := core.New(store, nativeTestFactory{}, "fake-pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	d := &Desktop{engine: engine, done: make(chan struct{}), panelHiddenAt: time.Now().Add(-31 * time.Minute)}
+	d.flushPanelHidden()
+	sid, err := engine.SubmitSelection("synthetic selection")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.Stop(sid); err != nil {
+		t.Fatal(err)
+	}
+	d.flushPanelHidden()
+	if err = engine.PanelShown(); err != nil {
+		t.Fatal(err)
+	}
+	if engine.CurrentID("panel") != sid {
+		t.Fatal("a processed hide was replayed after selection reset its timeout")
+	}
+}
+
+func TestNativeQueuedHideDoesNotExpireSelectionSession(t *testing.T) {
+	store, err := core.OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine, err := core.New(store, nativeTestFactory{}, "fake-pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	d := &Desktop{engine: engine, done: make(chan struct{}), panelHiddenAt: time.Now().Add(-31 * time.Minute)}
+	sid, err := d.submitSelection("synthetic newer selection")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.Stop(sid); err != nil {
+		t.Fatal(err)
+	}
+	d.flushPanelHidden()
+	if err = engine.PanelShown(); err != nil {
+		t.Fatal(err)
+	}
+	if engine.CurrentID("panel") != sid {
+		t.Fatal("a queued hide was replayed after a newer selection submission")
 	}
 }
 

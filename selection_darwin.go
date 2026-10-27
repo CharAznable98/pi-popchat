@@ -74,7 +74,7 @@ func popchatSelectionClicked(payload *C.char) {
 	screen := mouseScreen()
 	go func() {
 		prompt := selectionPrompt(v)
-		if _, err := d.engine.SubmitSelection(prompt); err != nil {
+		if _, err := d.submitSelection(prompt); err != nil {
 			d.setError(err.Error())
 			return
 		}

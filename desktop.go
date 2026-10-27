@@ -25,6 +25,7 @@ type Desktop struct {
 	panelRevision            uint64
 	panelPending             bool
 	panelHiddenAt            time.Time
+	panelHiddenApplied       time.Time
 	panelWorkMu              sync.Mutex
 	done                     chan struct{}
 	app                      *application.App
@@ -271,6 +272,11 @@ func (d *Desktop) presentPanel(screen *application.Screen) {
 // A revision prevents an earlier open/hide from completing a later invocation.
 func (d *Desktop) presentPanelWithPending(screen *application.Screen, pending bool) (revision uint64, hiddenAt time.Time) {
 	application.InvokeSync(func() {
+		select {
+		case <-d.done:
+			return
+		default:
+		}
 		d.mu.Lock()
 		d.panelRevision++
 		d.panelPending = pending
@@ -308,7 +314,7 @@ func (d *Desktop) resolvePanel(revision uint64, hiddenAt time.Time, show bool) {
 		return
 	}
 	if !hiddenAt.IsZero() {
-		d.engine.PanelHiddenAt(hiddenAt)
+		d.applyPanelHidden(hiddenAt)
 	}
 	if !show {
 		return
@@ -345,7 +351,35 @@ func (d *Desktop) flushPanelHidden() {
 	d.mu.Lock()
 	hiddenAt := d.panelHiddenAt
 	d.mu.Unlock()
-	d.engine.PanelHiddenAt(hiddenAt)
+	d.applyPanelHidden(hiddenAt)
+}
+
+// Caller holds panelWorkMu. A hide is an event, not a timestamp to replay on
+// every show: selection submissions may already have reset Engine's timeout.
+func (d *Desktop) applyPanelHidden(at time.Time) {
+	d.mu.Lock()
+	applied := d.panelHiddenApplied
+	d.mu.Unlock()
+	if at.IsZero() || at.Equal(applied) {
+		return
+	}
+	d.engine.PanelHiddenAt(at)
+	d.mu.Lock()
+	d.panelHiddenApplied = at
+	d.mu.Unlock()
+}
+
+func (d *Desktop) submitSelection(prompt string) (string, error) {
+	d.panelWorkMu.Lock()
+	defer d.panelWorkMu.Unlock()
+	sid, err := d.engine.SubmitSelection(prompt)
+	if err == nil {
+		// Also invalidate a queued hide skipped by the newer selection intent.
+		d.mu.Lock()
+		d.panelHiddenApplied = d.panelHiddenAt
+		d.mu.Unlock()
+	}
+	return sid, err
 }
 
 func (d *Desktop) showMain() {

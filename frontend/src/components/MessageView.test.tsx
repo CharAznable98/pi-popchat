@@ -19,7 +19,11 @@ it.each([
   ],
   ["$$\n\\frac{a+b}{2\\epsilon}\n$$", 1, 1],
   ["\\[\n\\frac{x}{y}\n\\]", 1, 1],
+  ["\\[\nx\n\\]", 1, 1],
   ["> $$\n> x^2\n> $$", 1, 1],
+  ["> \\[\n> x^2\n> \\]", 1, 1],
+  ["> 参数 \\(x\n> +y\\)。", 1, 0],
+  ["1. \\[\n   x^2\n   \\]", 1, 1],
   [String.raw`$$\begin{pmatrix}a&b\\c&d\end{pmatrix}$$`, 1, 1],
   [String.raw`\[\begin{aligned}a&=b\\c&=d\end{aligned}\]`, 1, 1],
 ])("renders delimited math: %s", (text, count, displayCount) => {

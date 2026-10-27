@@ -208,3 +208,80 @@ it("hides immediately while the draft save is still pending", async () => {
     timeout: 200,
   });
 });
+it("starts saving the original draft immediately on hide without waiting for storage", async () => {
+  await setup();
+  mock.action.mockImplementation((action: string) =>
+    action === "draft" ? new Promise(() => {}) : Promise.resolve(state(2)),
+  );
+  const input = screen.getByRole("textbox", { name: "消息" });
+  fireEvent.change(input, { target: { value: "synthetic immediate draft" } });
+  fireEvent.keyDown(input, { key: "Escape", keyCode: 27 });
+  await waitFor(
+    () => {
+      expect(mock.action).toHaveBeenCalledWith("hide", {});
+      expect(mock.action).toHaveBeenCalledWith(
+        "draft",
+        expect.objectContaining({
+          id: "synthetic",
+          text: "synthetic immediate draft",
+        }),
+      );
+    },
+    { timeout: 200 },
+  );
+});
+it("finishes saving the original hidden draft after a pending save and a session switch", async () => {
+  await setup();
+  let finish!: (s: Snapshot) => void;
+  const other = state(3);
+  other.currentId = "other";
+  other.current!.id = "other";
+  other.current!.draft = "other draft";
+  mock.action.mockImplementation(
+    (action: string, payload: { text?: string }) => {
+      if (action === "draft" && payload.text === "first draft")
+        return new Promise<Snapshot>((resolve) => {
+          finish = resolve;
+        });
+      return Promise.resolve(
+        action === "draft" ? { ...other, version: 5 } : state(),
+      );
+    },
+  );
+  const input = screen.getByRole("textbox", { name: "消息" });
+  fireEvent.change(input, { target: { value: "first draft" } });
+  await waitFor(
+    () =>
+      expect(mock.action).toHaveBeenCalledWith(
+        "draft",
+        expect.objectContaining({ text: "first draft" }),
+      ),
+    { timeout: 1500 },
+  );
+  fireEvent.change(input, { target: { value: "latest original draft" } });
+  fireEvent.keyDown(input, { key: "Escape", keyCode: 27 });
+  mock.snapshot.mockResolvedValue(other);
+  await invalidate();
+  await waitFor(() =>
+    expect((input as HTMLTextAreaElement).value).toBe("other draft"),
+  );
+  await act(async () => finish({ ...other, version: 4 }));
+  await waitFor(
+    () =>
+      expect(mock.action).toHaveBeenCalledWith(
+        "draft",
+        expect.objectContaining({
+          id: "synthetic",
+          text: "latest original draft",
+          expectedDraft: "first draft",
+          expectedDraftRevision: 1,
+        }),
+      ),
+    { timeout: 300 },
+  );
+  expect(
+    mock.action.mock.calls
+      .filter(([action]) => action === "draft")
+      .every(([, payload]) => payload.id === "synthetic"),
+  ).toBe(true);
+});

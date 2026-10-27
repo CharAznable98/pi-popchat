@@ -205,36 +205,51 @@ export function App() {
     current?.queue?.length,
     current?.interaction?.id,
   ]);
-  const persist = async (): Promise<boolean> => {
+  const persist = async (id = sessionId.current): Promise<boolean> => {
     if (persistLock.current) {
       await persistLock.current;
-      return persist();
+      return persist(id);
     }
-    if (!dirty.current || !sessionId.current || sendLock.current) return true;
-    const id = sessionId.current,
-      value = draft.current,
-      expected = base.current,
-      files = attachmentRef.current;
+    if (!id || sendLock.current) return true;
+    const local =
+      id === sessionId.current && dirty.current
+        ? {
+            text: draft.current,
+            base: base.current,
+            revision: draftRevision.current,
+            attachments: attachmentRef.current,
+          }
+        : localDrafts.current.get(id);
+    if (!local) return true;
+    const value = local.text,
+      expected = local.base,
+      files = local.attachments;
     const operation = (async () => {
       try {
         const s = await api.action("draft", {
           text: value,
           expectedDraft: expected,
-          expectedDraftRevision: draftRevision.current,
+          expectedDraftRevision: local.revision,
           id,
           attachments: files,
         });
+        const revision =
+          s.current?.id === id
+            ? (s.current.draftRevision ?? local.revision + 1)
+            : local.revision + 1;
+        const latest = localDrafts.current.get(id);
+        if (latest?.text === value && latest.attachments === files) {
+          localDrafts.current.delete(id);
+        } else if (latest) {
+          // An edit or view switch may have happened during the write. Keep
+          // its text, but advance that session's compare-and-swap baseline.
+          localDrafts.current.set(id, { ...latest, base: value, revision });
+        }
         if (sessionId.current === id) {
           base.current = value;
-          draftRevision.current =
-            s.current?.id === id
-              ? (s.current.draftRevision ?? draftRevision.current + 1)
-              : draftRevision.current + 1;
-          if (draft.current === value && attachmentRef.current === files) {
-            dirty.current = false;
-            setConflict(false);
-            localDrafts.current.delete(id);
-          }
+          draftRevision.current = revision;
+          dirty.current = localDrafts.current.has(id);
+          if (!dirty.current) setConflict(false);
         }
         apply(s);
         return true;
@@ -251,38 +266,42 @@ export function App() {
     }
   };
   const updateAttachments = (next: Attachment[]) => {
+    const id = sessionId.current;
     attachmentRef.current = next;
     setAttachments(next);
     dirty.current = true;
-    localDrafts.current.set(sessionId.current, {
+    localDrafts.current.set(id, {
       text: draft.current,
       base: base.current,
       revision: draftRevision.current,
       attachments: next,
     });
     if (draftTimer.current) clearTimeout(draftTimer.current);
-    draftTimer.current = setTimeout(() => void persist(), 650);
+    draftTimer.current = setTimeout(() => void persist(id), 650);
   };
   const changeText = (value: string) => {
+    const id = sessionId.current;
     draft.current = value;
     setCommandsDismissed(false);
     setCommandIndex(0);
     dirty.current = true;
     setText(value);
-    localDrafts.current.set(sessionId.current, {
+    localDrafts.current.set(id, {
       text: value,
       base: base.current,
       revision: draftRevision.current,
       attachments: attachmentRef.current,
     });
     if (draftTimer.current) clearTimeout(draftTimer.current);
-    draftTimer.current = setTimeout(() => void persist(), 650);
+    draftTimer.current = setTimeout(() => void persist(id), 650);
   };
   const navigate = async (
     action: string,
     payload: Record<string, unknown> = {},
   ) => {
     if (action === "hide") {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+      void persist(sessionId.current);
       run(action, payload);
       return;
     }

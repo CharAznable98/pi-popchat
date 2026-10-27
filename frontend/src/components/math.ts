@@ -4,6 +4,7 @@ import type { Processor } from "unified";
 import type {} from "micromark-extension-math";
 import type {} from "remark-parse";
 import { visit } from "unist-util-visit";
+import { markdownLineEnding } from "micromark-util-character";
 
 // Tokenize before CommonMark consumes backslash escapes. Using the Markdown
 // tokenizer also keeps code spans, fenced code, and indented code untouched.
@@ -29,12 +30,18 @@ const tokenize: Tokenizer = function (effects, ok, nok) {
   };
   const between: State = (code) => {
     if (code === null) return finish(code);
+    if (markdownLineEnding(code)) {
+      effects.enter("lineEnding");
+      effects.consume(code);
+      effects.exit("lineEnding");
+      return between;
+    }
     if (code === 92) return effects.attempt(closing, finish, escaped)(code);
     effects.enter("mathTextData");
     return data(code);
   };
   const data: State = (code) => {
-    if (code === null || code === 92) {
+    if (code === null || code === 92 || markdownLineEnding(code)) {
       effects.exit("mathTextData");
       return between(code);
     }
@@ -45,9 +52,9 @@ const tokenize: Tokenizer = function (effects, ok, nok) {
     effects.enter("mathTextData");
     effects.consume(code);
     return (code) => {
-      if (code === null) {
+      if (code === null || markdownLineEnding(code)) {
         effects.exit("mathTextData");
-        return finish(code);
+        return between(code);
       }
       effects.consume(code);
       return data;

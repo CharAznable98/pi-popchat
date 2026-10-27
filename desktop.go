@@ -99,6 +99,7 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 		sid = str("id")
 	}
 	var err error
+	var submission *core.SubmissionReceipt
 	switch action {
 	case "new":
 		var created string
@@ -132,7 +133,7 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 			v := uint64(n)
 			revision = &v
 		}
-		err = d.engine.SendWithRevision(sid, str("text"), mid, attachments, revision)
+		submission, err = d.engine.SendWithReceipt(sid, str("text"), mid, attachments, revision)
 	case "draft":
 		var expected *string
 		if x, ok := p["expectedDraft"].(string); ok {
@@ -230,7 +231,9 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 	default:
 		err = fmt.Errorf("未知操作：%s", action)
 	}
-	return d.Snapshot(view), err
+	snapshot := d.Snapshot(view)
+	snapshot.Submission = submission
+	return snapshot, err
 }
 func (d *Desktop) hidePanel() {
 	application.InvokeSync(func() {

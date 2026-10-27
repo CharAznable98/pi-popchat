@@ -43,6 +43,44 @@ func TestNativeAcceptanceCallbacksAfterShutdown(t *testing.T) {
 	}
 }
 
+func TestNativeSubmissionReceiptRemainsBoundToOriginalSession(t *testing.T) {
+	store, err := core.OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine, err := core.New(store, nativeTestFactory{}, "fake-pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	original, err := engine.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.Send(original, "synthetic original", "stable-submission", nil); err != nil {
+		t.Fatal(err)
+	}
+	other, err := engine.NewSession("main", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := &Desktop{engine: engine, done: make(chan struct{})}
+	duplicate, err := d.Action("main", "send", map[string]any{"id": original, "text": "synthetic original", "clientMessageId": "stable-submission"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if duplicate.CurrentID != other || duplicate.Submission == nil || duplicate.Submission.SessionID != original || !duplicate.Submission.Duplicate || duplicate.Submission.DraftRevision != 1 {
+		t.Fatalf("duplicate receipt followed the selected session: %+v", duplicate.Submission)
+	}
+	accepted, err := d.Action("main", "send", map[string]any{"id": original, "text": "synthetic follow-up", "clientMessageId": "second-submission", "expectedDraftRevision": float64(1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accepted.CurrentID != other || accepted.Submission == nil || accepted.Submission.SessionID != original || accepted.Submission.Duplicate || accepted.Submission.DraftRevision != 2 {
+		t.Fatalf("accepted receipt followed the selected session: %+v", accepted.Submission)
+	}
+}
+
 type nativeTestFactory struct{}
 type nativeTestClient struct {
 	done   chan struct{}

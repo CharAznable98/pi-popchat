@@ -132,3 +132,6 @@ MessageView 不再将 Markdown 图片替换为文字；MessageImage 负责网络
 
 
 2026-10-27 交付验证：`sh scripts/test.sh` 通过（4 项 Node 检查、69 项 Vitest 检查、Go race/行为测试及原生事件监听回归），本机签名应用已打包。受控 SQLite 写锁占用 800ms 时，最终原生复测显示约 46ms、隐藏约 13ms；原生整套验收为 63/68，鼠标选屏、浮窗输入和跨屏全屏焦点仍有不稳定失败，未宣称完整桌面验收通过。未修改 main 的对照构建成功，但原生验收在 90 秒超时，归因未定。用户选择先交付、稍后手动验证；当前正在使用的旧实例未重启。证据见 `docs/validation/formulas-responsiveness-2026-10-27.json`。
+
+
+提交前补充回归：数学 tokenizer 将换行单独输出为 `lineEnding`，覆盖裸文本、引用块和列表中的多行公式；隐藏时立即启动原会话的后台保存，发送锁按会话归属区分，并在发送结束后继续保存未发送的后续编辑。发送的幂等去重可能不改变草稿，新增原子 `SubmissionReceipt` 记录实际提交状态，避免前端根据 `success` 推断版本加一；对应 App、core 和 Desktop 回归均保留。最终完整验证为 4 项 Node 检查、78 项 Vitest 检查及 Go race/行为测试通过。

@@ -8,14 +8,15 @@
     "每窗口只保留一个在途快照和一次后续刷新，启动间隔至少 50ms；未变化的正文复用 Markdown 渲染。",
     "原生显示/隐藏不等待会话锁、写盘或 Agent 准备；恢复 revision 和客户端/后端保护避免向旧会话误发。",
     "实际隐藏时刻在后台保存并在退出时收尾；首个快照返回前保护输入，避免早期输入被恢复草稿覆盖。",
-    "公式支持四种定界符，代码原样保留，错误/未完成公式保留源码，字体本地打包。"
+    "公式支持四种定界符，代码原样保留，错误/未完成公式保留源码，字体本地打包。",
+    "发送回执在原会话 mutation 锁内生成，区分正常、排队和消息 ID 去重，禁止客户端推断草稿清空或版本加一。"
   ],
   "verification": {
     "default_suite": {
       "command": "sh scripts/test.sh",
       "pass": true,
       "node_tests": 4,
-      "vitest_tests": 69,
+      "vitest_tests": 78,
       "go_race": true,
       "native_selection_monitor": true
     },
@@ -106,7 +107,8 @@
           "pass": false,
           "detail": "target=2 selected=2 actual=2 panelFocused=false panelActiveSpace=true fullscreenStillOnScreen=true frontPID=44013 ownPID=44013 fixturePID=44221 behavior=262401 level=3 style=143 panelIndex=32 foreignIndex=35 occlusion=8194"
         }
-      ]
+      ],
+      "scope": "此前隔离原生整套验收；本轮补充并发/回执修复后按用户选择待手动验证。"
     },
     "previous_native": {
       "total": 68,
@@ -171,5 +173,13 @@
     "application": "dist/Pi Popchat.app",
     "running_instance_restarted": false,
     "native_acceptance": "未全部通过，保留现有失败项和原始结果；未继续自动验收"
-  }
+  },
+  "review_regressions": [
+    "根级、引用块和列表中的多行裸文本公式解析",
+    "隐藏时立即后台保存原草稿",
+    "隐藏保存与另一会话发送并发",
+    "同会话发送期间新增后续草稿、隐藏并切换会话",
+    "响应丢失后同消息 ID 去重重试的实际草稿版本",
+    "core 正常/排队/去重原子回执与 Desktop 跨会话回执"
+  ]
 }

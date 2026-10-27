@@ -91,16 +91,27 @@ type Environment struct {
 	Error     string `json:"error"`
 }
 type Snapshot struct {
-	PanelRevision       uint64      `json:"panelRevision"`
-	PanelPending        bool        `json:"panelPending"`
-	SelectionPermission bool        `json:"selectionPermission"`
-	Version             uint64      `json:"version"`
-	CurrentID           string      `json:"currentId"`
-	Sessions            []*Session  `json:"sessions"`
-	Current             *Session    `json:"current"`
-	Settings            Settings    `json:"settings"`
-	Environment         Environment `json:"environment"`
-	Error               string      `json:"error"`
+	Submission          *SubmissionReceipt `json:"submission,omitempty"`
+	PanelRevision       uint64             `json:"panelRevision"`
+	PanelPending        bool               `json:"panelPending"`
+	SelectionPermission bool               `json:"selectionPermission"`
+	Version             uint64             `json:"version"`
+	CurrentID           string             `json:"currentId"`
+	Sessions            []*Session         `json:"sessions"`
+	Current             *Session           `json:"current"`
+	Settings            Settings           `json:"settings"`
+	Environment         Environment        `json:"environment"`
+	Error               string             `json:"error"`
+}
+
+// SubmissionReceipt is captured under the mutation lock, including deduplicated
+// success. It is independent of whichever conversation a window now displays.
+type SubmissionReceipt struct {
+	SessionID        string       `json:"sessionId"`
+	Draft            string       `json:"draft"`
+	DraftRevision    uint64       `json:"draftRevision"`
+	DraftAttachments []Attachment `json:"draftAttachments"`
+	Duplicate        bool         `json:"duplicate"`
 }
 
 func id() string {

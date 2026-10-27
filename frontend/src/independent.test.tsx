@@ -3,7 +3,7 @@ import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {render,screen,fireEvent,waitFor,cleanup,act} from '@testing-library/react';
 import type {Snapshot} from './types';
 const mock=vi.hoisted(()=>({snapshot:vi.fn(),action:vi.fn(),save:vi.fn(),listener:()=>{}}));
-vi.mock('./api',()=>({view:'main',api:{snapshot:mock.snapshot,action:mock.action,save:mock.save,subscribe:(fn:()=>void)=>{mock.listener=fn;return ()=>{}}}}));
+vi.mock('./api',async()=>{const {withSubmission}=await import('./testing/submission');return {view:'main',api:{snapshot:mock.snapshot,action:async(action:string,payload:Record<string,unknown>)=>withSubmission(await mock.action(action,payload),action,payload),save:mock.save,subscribe:(fn:()=>void)=>{mock.listener=fn;return ()=>{}}}}});
 import {App} from './App';
 const attachment={id:'file1',name:'important.txt',path:'/work/important.txt',mime:'text/plain'};
 function state(id='a',version=1):Snapshot{return {version,currentId:id,current:{id,title:'会话 '+id,pinned:false,cwd:'/work',createdAt:'',updatedAt:'',status:'idle',error:'',draft:'',messages:[],queue:[],interaction:null,models:[],model:'',commands:[]},sessions:[],settings:{shortcut:'Alt+Space',piPath:''},environment:{piPath:'/bin/pi',version:'0.84.1',available:true,error:''},error:''}}

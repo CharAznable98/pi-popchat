@@ -14,19 +14,23 @@ const mock = vi.hoisted(() => ({
   action: vi.fn(),
   listener: () => {},
 }));
-vi.mock("./api", () => ({
-  view: "panel",
-  api: {
-    snapshot: mock.snapshot,
-    action: mock.action,
-    readImage: vi.fn(),
-    save: vi.fn(),
-    subscribe: (fn: () => void) => {
-      mock.listener = fn;
-      return () => {};
+vi.mock("./api", async () => {
+  const { withSubmission } = await import("./testing/submission");
+  return {
+    view: "panel",
+    api: {
+      snapshot: mock.snapshot,
+      action: async (action: string, payload: Record<string, unknown>) =>
+        withSubmission(await mock.action(action, payload), action, payload),
+      readImage: vi.fn(),
+      save: vi.fn(),
+      subscribe: (fn: () => void) => {
+        mock.listener = fn;
+        return () => {};
+      },
     },
-  },
-}));
+  };
+});
 import { App } from "./App";
 function state(version = 1, revision = 0, pending = false): Snapshot {
   return {
@@ -337,6 +341,74 @@ it("saves an unsent follow-up after hiding and switching during that session's s
           text: "unsent follow-up",
           expectedDraft: "",
           expectedDraftRevision: 1,
+        }),
+      ),
+    { timeout: 300 },
+  );
+});
+
+it("uses the actual unchanged draft revision after a deduplicated send switches sessions", async () => {
+  const initial = state();
+  initial.current!.draft = "retried request";
+  initial.current!.draftRevision = 3;
+  mock.snapshot.mockResolvedValue(initial);
+  render(<App />);
+  await screen.findByText("synthetic-1");
+  mock.action.mockRejectedValueOnce(new Error("bridge response lost"));
+  fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+  await screen.findByText("Error: bridge response lost");
+  const first = mock.action.mock.calls.find(
+    ([action]) => action === "send",
+  )![1];
+  let finish!: (s: Snapshot) => void;
+  const other = state(4);
+  other.currentId = "other";
+  other.current!.id = "other";
+  mock.action.mockImplementation((action: string) =>
+    action === "send"
+      ? new Promise<Snapshot>((r) => {
+          finish = r;
+        })
+      : Promise.resolve({ ...other, version: 6 }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+  await waitFor(() =>
+    expect(
+      mock.action.mock.calls.filter(([action]) => action === "send"),
+    ).toHaveLength(2),
+  );
+  const second = mock.action.mock.calls.filter(
+    ([action]) => action === "send",
+  )[1][1];
+  expect(second.clientMessageId).toBe(first.clientMessageId);
+  const input = screen.getByRole("textbox", { name: "消息" });
+  fireEvent.change(input, { target: { value: "new follow-up" } });
+  fireEvent.keyDown(input, { key: "Escape", keyCode: 27 });
+  mock.snapshot.mockResolvedValue(other);
+  await invalidate();
+  await screen.findByText("synthetic-4");
+  await act(async () =>
+    finish({
+      ...other,
+      version: 5,
+      submission: {
+        sessionId: "synthetic",
+        draft: "retried request",
+        draftRevision: 3,
+        draftAttachments: [],
+        duplicate: true,
+      },
+    }),
+  );
+  await waitFor(
+    () =>
+      expect(mock.action).toHaveBeenCalledWith(
+        "draft",
+        expect.objectContaining({
+          id: "synthetic",
+          text: "new follow-up",
+          expectedDraft: "retried request",
+          expectedDraftRevision: 3,
         }),
       ),
     { timeout: 300 },

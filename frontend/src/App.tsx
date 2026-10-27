@@ -371,13 +371,12 @@ export function App() {
         expectedDraftRevision: expectedRevision,
         id: sendingSession,
       });
-      const savedDraft =
-        result.current?.id === sendingSession ? result.current.draft : "";
-      const savedRevision =
-        result.current?.id === sendingSession
-          ? (result.current.draftRevision ?? expectedRevision + 1)
-          : expectedRevision + 1;
-      if (sessionId.current === sendingSession) {
+      const receipt = result.submission;
+      if (!receipt || receipt.sessionId !== sendingSession)
+        throw new Error("发送回执缺少原会话状态，请核对后重试");
+      const savedDraft = receipt.draft;
+      const savedRevision = receipt.draftRevision;
+      if (sessionId.current === sendingSession && !receipt.duplicate) {
         base.current = savedDraft;
         draftRevision.current = savedRevision;
       }
@@ -386,12 +385,13 @@ export function App() {
         draft.current === content &&
         attachmentRef.current === files
       ) {
-        draft.current = "";
-        base.current = "";
+        draft.current = savedDraft;
+        base.current = savedDraft;
+        draftRevision.current = savedRevision;
         dirty.current = false;
-        setText("");
-        attachmentRef.current = [];
-        setAttachments([]);
+        setText(savedDraft);
+        attachmentRef.current = receipt.draftAttachments;
+        setAttachments(receipt.draftAttachments);
         localDrafts.current.delete(current.id);
         setConflict(false);
       }
@@ -402,7 +402,7 @@ export function App() {
           JSON.stringify(transaction.attachments)
       ) {
         localDrafts.current.delete(sendingSession);
-      } else if (local) {
+      } else if (local && !receipt.duplicate) {
         localDrafts.current.set(sendingSession, {
           ...local,
           base: savedDraft,
@@ -413,6 +413,7 @@ export function App() {
         pendingSends.current.delete(sendingSession);
       }
     } catch (error) {
+      setError(String(error));
       if (String(error).includes("另一窗口已更新或发送草稿")) {
         if (sessionId.current === sendingSession) setConflict(true);
         void refresh();

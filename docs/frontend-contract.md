@@ -44,3 +44,6 @@
 `panelRevision/panelPending` 为桌面浮窗展示状态，不持久化。原生窗口显示与隐藏先执行，会话恢复、隐藏时间保存和 Agent 准备在后台进行。`popchat:panel-opening` 原生 DOM 事件立即标记本次恢复；相同 revision 从 pending 变为 ready 后不得倒退，较早 revision 的结果不得解除当前输入保护。恢复期间只通过已有快照刷新通道重查状态，完成后停止；`send/new/select/transfer/respond` 在后端同时拒绝恢复中的浮窗操作，`hide` 不等待草稿保存或会话锁。
 
 数学公式由 Markdown 语法节点识别，使用随应用打包的 KaTeX 渲染，禁止受信任命令。反斜杠定界符在 CommonMark 转义前解析；代码中的公式示例不转换。错误和未闭合公式保留原始源码，消息原文与持久化格式不变。
+
+
+发送成功的 `Action` 快照带 `submission` 原会话回执：`sessionId/draft/draftRevision/draftAttachments/duplicate`。回执在提交的同一 Engine 锁内生成，覆盖正常发送、排队和按消息 ID 去重；不依赖当前窗口已切换到哪个会话。去重成功不意味着清空草稿或版本加一，前端不得据此推断 CAS 基线；存在后续编辑时保留其既有基线。缺失或错会话回执保留输入并报错。隐藏先启动绑定原 ID 的后台保存，同会话正在发送时等待发送结束，其他会话的发送不阻止保存。

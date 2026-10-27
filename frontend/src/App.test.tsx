@@ -15,18 +15,22 @@ const mock = vi.hoisted(() => ({
   save: vi.fn(),
   listener: () => {},
 }));
-vi.mock("./api", () => ({
-  view: "panel",
-  api: {
-    snapshot: mock.snapshot,
-    action: mock.action,
-    save: mock.save,
-    subscribe: (fn: () => void) => {
-      mock.listener = fn;
-      return () => {};
+vi.mock("./api", async () => {
+  const { withSubmission } = await import("./testing/submission");
+  return {
+    view: "panel",
+    api: {
+      snapshot: mock.snapshot,
+      action: async (action: string, payload: Record<string, unknown>) =>
+        withSubmission(await mock.action(action, payload), action, payload),
+      save: mock.save,
+      subscribe: (fn: () => void) => {
+        mock.listener = fn;
+        return () => {};
+      },
     },
-  },
-}));
+  };
+});
 import { App } from "./App";
 function state(version = 1): Snapshot {
   return {

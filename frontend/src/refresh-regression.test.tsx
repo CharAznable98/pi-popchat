@@ -230,58 +230,115 @@ it("starts saving the original draft immediately on hide without waiting for sto
     { timeout: 200 },
   );
 });
-it("finishes saving the original hidden draft after a pending save and a session switch", async () => {
+it.each([false, true])(
+  "finishes the hidden draft after a session switch; other session sending=%s",
+  async (sendOther) => {
+    await setup();
+    let finish!: (s: Snapshot) => void;
+    let finishSend!: (s: Snapshot) => void;
+    const other = state(3);
+    other.currentId = "other";
+    other.current!.id = "other";
+    other.current!.draft = "other draft";
+    mock.action.mockImplementation(
+      (action: string, payload: { text?: string }) => {
+        if (action === "send")
+          return new Promise<Snapshot>((resolve) => {
+            finishSend = resolve;
+          });
+        if (action === "draft" && payload.text === "first draft")
+          return new Promise<Snapshot>((resolve) => {
+            finish = resolve;
+          });
+        return Promise.resolve(
+          action === "draft" ? { ...other, version: 5 } : state(),
+        );
+      },
+    );
+    const input = screen.getByRole("textbox", { name: "消息" });
+    fireEvent.change(input, { target: { value: "first draft" } });
+    await waitFor(
+      () =>
+        expect(mock.action).toHaveBeenCalledWith(
+          "draft",
+          expect.objectContaining({ text: "first draft" }),
+        ),
+      { timeout: 1500 },
+    );
+    fireEvent.change(input, { target: { value: "latest original draft" } });
+    fireEvent.keyDown(input, { key: "Escape", keyCode: 27 });
+    mock.snapshot.mockResolvedValue(other);
+    await invalidate();
+    await waitFor(() =>
+      expect((input as HTMLTextAreaElement).value).toBe("other draft"),
+    );
+    if (sendOther) {
+      fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+      expect(screen.getByRole("button", { name: /^发送中/ })).toBeTruthy();
+    }
+    await act(async () => finish({ ...other, version: 4 }));
+    await waitFor(
+      () =>
+        expect(mock.action).toHaveBeenCalledWith(
+          "draft",
+          expect.objectContaining({
+            id: "synthetic",
+            text: "latest original draft",
+            expectedDraft: "first draft",
+            expectedDraftRevision: 1,
+          }),
+        ),
+      { timeout: 300 },
+    );
+    expect(
+      mock.action.mock.calls
+        .filter(([action]) => action === "draft")
+        .every(([, payload]) => payload.id === "synthetic"),
+    ).toBe(true);
+    if (sendOther) await act(async () => finishSend({ ...other, version: 6 }));
+  },
+);
+it("saves an unsent follow-up after hiding and switching during that session's send", async () => {
   await setup();
-  let finish!: (s: Snapshot) => void;
+  let finishSend!: (s: Snapshot) => void;
   const other = state(3);
   other.currentId = "other";
   other.current!.id = "other";
-  other.current!.draft = "other draft";
-  mock.action.mockImplementation(
-    (action: string, payload: { text?: string }) => {
-      if (action === "draft" && payload.text === "first draft")
-        return new Promise<Snapshot>((resolve) => {
-          finish = resolve;
-        });
-      return Promise.resolve(
-        action === "draft" ? { ...other, version: 5 } : state(),
-      );
-    },
+  mock.action.mockImplementation((action: string) =>
+    action === "send"
+      ? new Promise<Snapshot>((resolve) => {
+          finishSend = resolve;
+        })
+      : Promise.resolve(
+          action === "draft" ? { ...other, version: 5 } : state(),
+        ),
   );
   const input = screen.getByRole("textbox", { name: "消息" });
-  fireEvent.change(input, { target: { value: "first draft" } });
-  await waitFor(
-    () =>
-      expect(mock.action).toHaveBeenCalledWith(
-        "draft",
-        expect.objectContaining({ text: "first draft" }),
-      ),
-    { timeout: 1500 },
+  fireEvent.change(input, { target: { value: "sent original" } });
+  fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
+  await waitFor(() =>
+    expect(mock.action).toHaveBeenCalledWith(
+      "send",
+      expect.objectContaining({ id: "synthetic" }),
+    ),
   );
-  fireEvent.change(input, { target: { value: "latest original draft" } });
+  fireEvent.change(input, { target: { value: "unsent follow-up" } });
   fireEvent.keyDown(input, { key: "Escape", keyCode: 27 });
   mock.snapshot.mockResolvedValue(other);
   await invalidate();
-  await waitFor(() =>
-    expect((input as HTMLTextAreaElement).value).toBe("other draft"),
-  );
-  await act(async () => finish({ ...other, version: 4 }));
+  await screen.findByText("synthetic-3");
+  await act(async () => finishSend({ ...other, version: 4 }));
   await waitFor(
     () =>
       expect(mock.action).toHaveBeenCalledWith(
         "draft",
         expect.objectContaining({
           id: "synthetic",
-          text: "latest original draft",
-          expectedDraft: "first draft",
+          text: "unsent follow-up",
+          expectedDraft: "",
           expectedDraftRevision: 1,
         }),
       ),
     { timeout: 300 },
   );
-  expect(
-    mock.action.mock.calls
-      .filter(([action]) => action === "draft")
-      .every(([, payload]) => payload.id === "synthetic"),
-  ).toBe(true);
 });

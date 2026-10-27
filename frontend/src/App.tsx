@@ -54,7 +54,8 @@ export function App() {
     bottom = useRef<HTMLDivElement>(null),
     followOutput = useRef(true),
     fileInput = useRef<HTMLInputElement>(null),
-    sendLock = useRef(false),
+    sendLock = useRef(""),
+    sendDone = useRef<Promise<void> | null>(null),
     pendingSends = useRef(
       new Map<
         string,
@@ -210,7 +211,11 @@ export function App() {
       await persistLock.current;
       return persist(id);
     }
-    if (!id || sendLock.current) return true;
+    if (!id) return true;
+    if (sendLock.current === id && sendDone.current) {
+      await sendDone.current;
+      return persist(id);
+    }
     const local =
       id === sessionId.current && dirty.current
         ? {
@@ -323,7 +328,11 @@ export function App() {
     const sendingRevision = draftRevision.current;
     const sendingBase = base.current;
     followOutput.current = true;
-    sendLock.current = true;
+    sendLock.current = sendingSession;
+    let finishSend!: () => void;
+    sendDone.current = new Promise<void>((resolve) => {
+      finishSend = resolve;
+    });
     setSending(true);
     if (draftTimer.current) clearTimeout(draftTimer.current);
     const content = draft.current;
@@ -351,20 +360,26 @@ export function App() {
         });
       }
       if (stillSelected) dirty.current = true;
+      const expectedRevision = stillSelected
+        ? draftRevision.current
+        : (localDrafts.current.get(sendingSession)?.revision ??
+          sendingRevision);
       const result = await act("send", {
         text: transaction.text,
         attachments: transaction.attachments,
         clientMessageId: transaction.id,
-        expectedDraftRevision:
-          sessionId.current === sendingSession
-            ? draftRevision.current
-            : sendingRevision,
+        expectedDraftRevision: expectedRevision,
         id: sendingSession,
       });
+      const savedDraft =
+        result.current?.id === sendingSession ? result.current.draft : "";
+      const savedRevision =
+        result.current?.id === sendingSession
+          ? (result.current.draftRevision ?? expectedRevision + 1)
+          : expectedRevision + 1;
       if (sessionId.current === sendingSession) {
-        base.current = result.current?.draft ?? "";
-        draftRevision.current =
-          result.current?.draftRevision ?? draftRevision.current + 1;
+        base.current = savedDraft;
+        draftRevision.current = savedRevision;
       }
       if (
         sessionId.current === sendingSession &&
@@ -387,6 +402,12 @@ export function App() {
           JSON.stringify(transaction.attachments)
       ) {
         localDrafts.current.delete(sendingSession);
+      } else if (local) {
+        localDrafts.current.set(sendingSession, {
+          ...local,
+          base: savedDraft,
+          revision: savedRevision,
+        });
       }
       if (pendingSends.current.get(sendingSession) === transaction) {
         pendingSends.current.delete(sendingSession);
@@ -397,10 +418,15 @@ export function App() {
         void refresh();
       }
     } finally {
-      sendLock.current = false;
+      sendLock.current = "";
+      sendDone.current = null;
+      finishSend();
       setSending(false);
-      if (dirty.current)
-        draftTimer.current = setTimeout(() => void persist(), 650);
+      if (localDrafts.current.has(sendingSession))
+        draftTimer.current = setTimeout(
+          () => void persist(sendingSession),
+          650,
+        );
       input.current?.focus();
     }
   };

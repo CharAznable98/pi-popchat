@@ -8,7 +8,7 @@
 - `Action(view, action, payload)`：执行操作并返回快照；失败拒绝 Promise，保留用户输入。
 - `SaveAttachment(name, mime, base64)`：保存附件，返回结构化引用与图片预览。
 
-`popchat:changed` 是失效通知；前端先订阅再加载，在事件或窗口重新聚焦时刷新，按 `version` 丢弃旧快照，不持续轮询。主窗口与浮窗各自选择会话，同一会话共享消息、运行进程、队列和草稿。
+`popchat:changed` 是失效通知；前端先订阅再加载，在事件或窗口重新聚焦时刷新，按 `version` 丢弃旧快照，普通会话不持续轮询。每个窗口最多一个在途快照请求，连续失效通知合并为一次后续刷新，刷新启动间隔至少 50ms；未变化的历史 Markdown 不重复解析。主窗口与浮窗各自选择会话，同一会话共享消息、运行进程、队列和草稿。
 
 快照包含 `version/currentId/current/sessions/settings/environment/error`。会话包含草稿文字、`draftAttachments/draftRevision`、`messages/queue/queuePaused`、交互、工作目录、Agent 模型与命令、`provider/model` 及可见正文搜索索引。模型的唯一键为 provider + id。日期为 RFC3339。
 
@@ -37,3 +37,13 @@
 
 
 2026-09-10：`current.draftOnly` 表示共享未发送草稿，仍有稳定 ID 和正常输入能力，但不出现在 `sessions` 中。`new` 复用唯一草稿；首次 `send` 携带 `expectedDraftRevision`，原子转为正式会话，ID 不变。`managedWorkspace` 由后端判定；删除只有用户明确选择时传 `removeWorkspace: true`，后端仍重新校验目录所有权和引用。
+
+
+2026-10-27：`sessions` 仅为历史摘要，不包含消息、队列、模型、命令、草稿附件或交互对象；只有 `current` 包含完整展示数据。快照拥有独立的可变切片，不能通过返回值修改后端状态。
+
+`panelRevision/panelPending` 为桌面浮窗展示状态，不持久化。原生窗口显示与隐藏先执行，会话恢复、隐藏时间保存和 Agent 准备在后台进行。`popchat:panel-opening` 原生 DOM 事件立即标记本次恢复；相同 revision 从 pending 变为 ready 后不得倒退，较早 revision 的结果不得解除当前输入保护。恢复期间只通过已有快照刷新通道重查状态，完成后停止；`send/new/select/transfer/respond` 在后端同时拒绝恢复中的浮窗操作，`hide` 不等待草稿保存或会话锁。
+
+数学公式由 Markdown 语法节点识别，使用随应用打包的 KaTeX 渲染，禁止受信任命令。反斜杠定界符在 CommonMark 转义前解析；代码中的公式示例不转换。错误和未闭合公式保留原始源码，消息原文与持久化格式不变。
+
+
+发送成功的 `Action` 快照带 `submission` 原会话回执：`sessionId/draft/draftRevision/draftAttachments/duplicate`。回执在提交的同一 Engine 锁内生成，覆盖正常发送、排队和按消息 ID 去重；不依赖当前窗口已切换到哪个会话。去重成功不意味着清空草稿或版本加一，前端不得据此推断 CAS 基线；存在后续编辑时保留其既有基线。缺失或错会话回执保留输入并报错。隐藏先启动绑定原 ID 的后台保存，同会话正在发送时等待发送结束，其他会话的发送不阻止保存。

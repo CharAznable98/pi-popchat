@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -180,37 +179,6 @@ func (e *Engine) saveLocked(s *Session) error {
 	e.changedLocked()
 	return nil
 }
-func (e *Engine) Snapshot(view string) Snapshot {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	v := Snapshot{Version: e.version, CurrentID: e.selected[view], Sessions: []*Session{}, Settings: cloneSettings(e.settings), Environment: e.environment, Error: e.lastError}
-	for _, s := range e.sessions {
-		b, _ := json.Marshal(s)
-		var cp Session
-		_ = json.Unmarshal(b, &cp)
-		cp.ManagedWorkspace = e.managedWorkspaceLocked(s)
-		if cp.ID == v.CurrentID {
-			v.Current = &cp
-		}
-		if cp.DraftOnly {
-			continue
-		}
-		summary := cp
-		summary.Messages = []Message{}
-		summary.Queue = []Message{}
-		summary.Models = []Model{}
-		summary.Commands = []Command{}
-		v.Sessions = append(v.Sessions, &summary)
-	}
-	sort.Slice(v.Sessions, func(i, j int) bool {
-		a, b := v.Sessions[i], v.Sessions[j]
-		if a.Pinned != b.Pinned {
-			return a.Pinned
-		}
-		return a.UpdatedAt > b.UpdatedAt
-	})
-	return v
-}
 func (e *Engine) NewSession(view, cwd string) (string, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -282,6 +250,9 @@ func (e *Engine) Select(view, sid string) error {
 func (e *Engine) PanelShown() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.closing {
+		return errors.New("应用正在退出")
+	}
 	s := e.sessionLocked(e.selected["panel"])
 	if s == nil || (!e.hiddenAt.IsZero() && time.Since(e.hiddenAt) > 30*time.Minute && !s.DraftOnly && !busy(s.Status)) {
 		_, err := e.newLocked("panel", "")
@@ -290,12 +261,18 @@ func (e *Engine) PanelShown() error {
 	return nil
 }
 func (e *Engine) PanelHidden() {
+	e.PanelHiddenAt(time.Now())
+}
+
+// The native window captures the time before deferring persistence, so slow
+// storage cannot move the beginning of the panel's timeout forward.
+func (e *Engine) PanelHiddenAt(at time.Time) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.closing {
+	if e.closing || at.IsZero() || at.Equal(e.hiddenAt) {
 		return
 	}
-	e.hiddenAt = time.Now()
+	e.hiddenAt = at
 	_ = e.store.Set("hiddenAt", e.hiddenAt)
 }
 func (e *Engine) Transfer() error {
@@ -579,6 +556,25 @@ func (e *Engine) Send(sid, text, clientID string, attachments []Attachment) erro
 }
 
 func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Attachment, revision *uint64) error {
+	return e.sendWithRevision(sid, text, clientID, attachments, revision, nil)
+}
+
+func (e *Engine) SendWithReceipt(sid, text, clientID string, attachments []Attachment, revision *uint64) (*SubmissionReceipt, error) {
+	var receipt SubmissionReceipt
+	if err := e.sendWithRevision(sid, text, clientID, attachments, revision, &receipt); err != nil {
+		return nil, err
+	}
+	return &receipt, nil
+}
+
+func captureSubmission(out *SubmissionReceipt, s *Session, duplicate bool) {
+	if out != nil {
+		*out = SubmissionReceipt{SessionID: s.ID, Draft: s.Draft, DraftRevision: s.DraftRevision,
+			DraftAttachments: append([]Attachment{}, s.DraftAttachments...), Duplicate: duplicate}
+	}
+}
+
+func (e *Engine) sendWithRevision(sid, text, clientID string, attachments []Attachment, revision *uint64, receipt *SubmissionReceipt) error {
 	text = strings.TrimSpace(text)
 	if text == "" && len(attachments) == 0 {
 		return errors.New("请输入消息")
@@ -597,6 +593,7 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 	}
 	for _, m := range append(append([]Message{}, s.Messages...), s.Queue...) {
 		if m.ID == clientID {
+			captureSubmission(receipt, s, true)
 			e.mu.Unlock()
 			return nil
 		}
@@ -644,6 +641,9 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 			s.Queue[len(s.Queue)-1].Status = "paused"
 		}
 		err := e.saveLocked(s)
+		if err == nil {
+			captureSubmission(receipt, s, false)
+		}
 		e.mu.Unlock()
 		return err
 	}
@@ -657,6 +657,7 @@ func (e *Engine) SendWithRevision(sid, text, clientID string, attachments []Atta
 		return err
 	}
 	e.scheduleLocked(sid, m, "prompt")
+	captureSubmission(receipt, s, false)
 	e.mu.Unlock()
 	return nil
 }

@@ -110,6 +110,9 @@ export interface Settings {
 }
 
 export interface Snapshot {
+    "submission"?: SubmissionReceipt | null;
+    "panelRevision": number;
+    "panelPending": boolean;
     "selectionPermission": boolean;
     "version": number;
     "currentId": string;
@@ -118,4 +121,16 @@ export interface Snapshot {
     "settings": Settings;
     "environment": Environment;
     "error": string;
+}
+
+/**
+ * SubmissionReceipt is captured under the mutation lock, including deduplicated
+ * success. It is independent of whichever conversation a window now displays.
+ */
+export interface SubmissionReceipt {
+    "sessionId": string;
+    "draft": string;
+    "draftRevision": number;
+    "draftAttachments": Attachment[] | null;
+    "duplicate": boolean;
 }

@@ -12,7 +12,7 @@ static void popchatProbeTypeReady(void *pointer, bool panel, int attempt) {
  WKWebView *webView = [window valueForKey:@"webView"];
  NSString *characters = panel ? @"p" : @"m";
  unsigned short keyCode = panel ? 35 : 46;
- [webView evaluateJavaScript:@"(() => { const t = document.querySelector('textarea'); t.focus(); return document.hasFocus() && document.activeElement === t; })()" completionHandler:^(id result, NSError *error) {
+ [webView evaluateJavaScript:@"(() => { const t = document.querySelector('textarea'); if (!t || t.disabled || document.documentElement.dataset.popchatPanelPending === 'true') return false; t.focus(); t.select(); return document.hasFocus() && document.activeElement === t; })()" completionHandler:^(id result, NSError *error) {
   if (error) return;
   if (![result boolValue]) {
    if (attempt < 40) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ popchatProbeTypeReady(pointer, panel, attempt + 1); });

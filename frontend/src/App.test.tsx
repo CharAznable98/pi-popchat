@@ -15,18 +15,22 @@ const mock = vi.hoisted(() => ({
   save: vi.fn(),
   listener: () => {},
 }));
-vi.mock("./api", () => ({
-  view: "panel",
-  api: {
-    snapshot: mock.snapshot,
-    action: mock.action,
-    save: mock.save,
-    subscribe: (fn: () => void) => {
-      mock.listener = fn;
-      return () => {};
+vi.mock("./api", async () => {
+  const { withSubmission } = await import("./testing/submission");
+  return {
+    view: "panel",
+    api: {
+      snapshot: mock.snapshot,
+      action: async (action: string, payload: Record<string, unknown>) =>
+        withSubmission(await mock.action(action, payload), action, payload),
+      save: mock.save,
+      subscribe: (fn: () => void) => {
+        mock.listener = fn;
+        return () => {};
+      },
     },
-  },
-}));
+  };
+});
 import { App } from "./App";
 function state(version = 1): Snapshot {
   return {
@@ -67,6 +71,14 @@ beforeEach(() => {
   mock.action.mockResolvedValue(state(2));
 });
 afterEach(() => cleanup());
+async function refreshEvent() {
+  const before = mock.snapshot.mock.calls.length;
+  await act(async () => mock.listener());
+  await waitFor(() =>
+    expect(mock.snapshot.mock.calls.length).toBeGreaterThan(before),
+  );
+  await act(async () => {});
+}
 async function setup() {
   render(<App />);
   await screen.findByText("测试会话");
@@ -120,11 +132,11 @@ describe("桌面对话交互", () => {
     next.current!.draft = "另一个窗口";
     next.current!.title = "新标题";
     mock.snapshot.mockResolvedValue(next);
-    await act(async () => mock.listener());
+    await refreshEvent();
     expect((input as HTMLTextAreaElement).value).toBe("我的本地草稿");
     expect(screen.getByText("新标题")).toBeTruthy();
     mock.snapshot.mockResolvedValue(state(3));
-    await act(async () => mock.listener());
+    await refreshEvent();
     expect(screen.getByText("新标题")).toBeTruthy();
   });
   it("草稿CAS冲突保留输入并显示解决入口", async () => {
@@ -182,7 +194,7 @@ it("首次模型信息尚未返回时显示加载状态，不误报配置缺失"
   const ready = state(3);
   ready.current!.models = [{ id: "test", name: "Test", provider: "test" }];
   mock.snapshot.mockResolvedValue(ready);
-  await act(async () => mock.listener());
+  await refreshEvent();
   expect(screen.queryByText("正在获取可用模型…")).toBeNull();
   expect(screen.queryByText("尚未获取到可用模型")).toBeNull();
 });
@@ -228,7 +240,7 @@ it("共享草稿发送冲突保留输入，确认后按新版本重试并复用�
   );
   fireEvent.click(screen.getByRole("button", { name: /^发送/ }));
   await screen.findByRole("button", { name: "保留当前输入" });
-  await act(async () => mock.listener());
+  await refreshEvent();
   expect((input as HTMLTextAreaElement).value).toBe("本窗口输入");
   const saved = state(3);
   saved.current!.draftOnly = true;
@@ -293,7 +305,7 @@ it.each(["发送拒绝后刷新", "发送等待中收到通知"])(
     remote.current!.draft = "另一窗口输入";
     remote.current!.draftRevision = 2;
     mock.snapshot.mockResolvedValue(remote);
-    if (timing === "发送等待中收到通知") await act(async () => mock.listener());
+    if (timing === "发送等待中收到通知") await refreshEvent();
     await act(async () =>
       reject(new Error("另一窗口已更新或发送草稿，请核对当前输入后重试")),
     );
@@ -361,13 +373,13 @@ it("已保存草稿发送中切换会话，成功后不再恢复已经发送的�
   other.current!.id = "b";
   other.current!.draft = "B 的输入";
   mock.snapshot.mockResolvedValue(other);
-  await act(async () => mock.listener());
+  await refreshEvent();
   await act(async () => resolve({ ...other, version: 3 }));
   expect((input as HTMLTextAreaElement).value).toBe("B 的输入");
   const sent = state(4);
   sent.current!.draftRevision = 1;
   mock.snapshot.mockResolvedValue(sent);
-  await act(async () => mock.listener());
+  await refreshEvent();
   expect((input as HTMLTextAreaElement).value).toBe("");
 });
 
@@ -384,11 +396,11 @@ it("发送响应丢失后切换会话，返回重试仍使用原消息 ID", asyn
   other.currentId = "b";
   other.current!.id = "b";
   mock.snapshot.mockResolvedValue(other);
-  await act(async () => mock.listener());
+  await refreshEvent();
   const submitted = state(3);
   submitted.current!.draftRevision = 1;
   mock.snapshot.mockResolvedValue(submitted);
-  await act(async () => mock.listener());
+  await refreshEvent();
   // Simulate the stale draft save rejection and explicit conflict resolution.
   mock.action.mockRejectedValueOnce(new Error("另一窗口已更新草稿"));
   fireEvent.change(screen.getByRole("textbox", { name: "消息" }), {
@@ -431,9 +443,7 @@ it("shows missing selection permission and refreshes after authorization", async
   );
   const allowed = { ...denied, selectionPermission: true };
   mock.snapshot.mockResolvedValue(allowed);
-  await act(async () => {
-    mock.listener();
-  });
+  await refreshEvent();
   await waitFor(() =>
     expect(screen.queryByText("划词工具条尚未生效")).toBeNull(),
   );
@@ -543,9 +553,7 @@ it("插入消息后最终失败会展开实际失败消息及其对象", async (
   settled.current!.status = "failed";
   settled.current!.messages[0].steps![0].status = "failed";
   mock.snapshot.mockResolvedValue(settled);
-  await act(async () => {
-    mock.listener();
-  });
+  await refreshEvent();
   await waitFor(() => {
     const object = screen.getByText("synthetic-failure.txt");
     expect(object.closest("details")?.open).toBe(true);

@@ -55,6 +55,15 @@ export type SelectionConfig = {
   buttons: { id: string; name: string; template: string }[];
 };
 export type Snapshot = {
+  submission?: {
+    sessionId: string;
+    draft: string;
+    draftRevision: number;
+    draftAttachments: Attachment[];
+    duplicate: boolean;
+  };
+  panelRevision?: number;
+  panelPending?: boolean;
   selectionPermission?: boolean;
   version: number;
   currentId: string;

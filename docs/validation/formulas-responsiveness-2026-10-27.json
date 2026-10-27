@@ -1,0 +1,215 @@
+{
+  "date": "2026-10-27",
+  "base_revision": "e7a86e30b4270c31d2eee2117c6e104c748e4711",
+  "branch": "feat/26-10-27",
+  "status": "本地实例已更新；完整回归与独立复审通过，原生完整验收待手动验证",
+  "changes": [
+    "历史快照仅复制摘要和当前会话必要的可变切片，排序移出 Engine 锁。",
+    "每窗口只保留一个在途快照和一次后续刷新，启动间隔至少 50ms；未变化的正文复用 Markdown 渲染。",
+    "原生显示/隐藏不等待会话锁、写盘或 Agent 准备；恢复 revision 和客户端/后端保护避免向旧会话误发。",
+    "实际隐藏时刻在后台保存并在退出时收尾；首个快照返回前保护输入，避免早期输入被恢复草稿覆盖。",
+    "公式支持四种定界符，代码原样保留，错误/未完成公式保留源码，字体本地打包。",
+    "发送回执在原会话 mutation 锁内生成，区分正常、排队和消息 ID 去重，禁止客户端推断草稿清空或版本加一。"
+  ],
+  "verification": {
+    "default_suite": {
+      "command": "sh scripts/test.sh",
+      "pass": true,
+      "node_tests": 4,
+      "vitest_tests": 78,
+      "go_race": true,
+      "native_selection_monitor": true
+    },
+    "build": {
+      "command": "sh scripts/build-app.sh",
+      "pass": true,
+      "signature_verified": true,
+      "path": "dist/Pi Popchat.app"
+    },
+    "visual": {
+      "pass": true,
+      "method": "实际 MessageView 和应用 CSS 的本地页面，520px 宽；浏览器截图人工核对上下标、希腊字母、分式、矩阵、代码和错误源码"
+    },
+    "performance": {
+      "fixture": "70 个合成历史会话，约 8.16MB，加一个草稿；临时 SQLite，无真实模型",
+      "snapshot_before_ms": 39.95,
+      "snapshot_after_p50_ms": 0.0115,
+      "snapshot_after_p95_ms": 0.016791,
+      "allocated_after_bytes": 68729,
+      "backlog_requests": 100,
+      "interaction_before_ms": 3992,
+      "interaction_after_ms": 4.796
+    },
+    "latest_native": {
+      "command": "sh scripts/check-native-desktop.sh",
+      "total": 68,
+      "failed": 5,
+      "storage_gate_ms": 800,
+      "target_results": [
+        {
+          "name": "panel-shows-before-persistence",
+          "pass": true,
+          "detail": "show=46.327417ms, SQLite writer held 800ms"
+        },
+        {
+          "name": "pending-panel-rejects-stale-send",
+          "pass": true,
+          "detail": "pending presentation must not target the previously displayed session"
+        },
+        {
+          "name": "panel-hides-before-persistence",
+          "pass": true,
+          "detail": "hide=12.786166ms"
+        },
+        {
+          "name": "latest-panel-invocation-becomes-ready",
+          "pass": true,
+          "detail": "older open/hide callbacks cannot complete the latest presentation"
+        },
+        {
+          "name": "main-keyboard-input",
+          "pass": true,
+          "detail": "AppKit keyDown → draft: \"m\""
+        },
+        {
+          "name": "panel-keyboard-input",
+          "pass": false,
+          "detail": "AppKit keyDown must reach React and persisted draft"
+        },
+        {
+          "name": "transfer-same-session",
+          "pass": true
+        }
+      ],
+      "failures": [
+        {
+          "name": "mouse-select-1-0.0-0.0",
+          "pass": false,
+          "detail": "full display frame, including edges; AppKit points"
+        },
+        {
+          "name": "mouse-select-1-1.0-0.0",
+          "pass": false,
+          "detail": "full display frame, including edges; AppKit points"
+        },
+        {
+          "name": "mouse-panel-centered-2",
+          "pass": false,
+          "detail": "foreground main window is on another screen when multiple screens are available"
+        },
+        {
+          "name": "panel-keyboard-input",
+          "pass": false,
+          "detail": "AppKit keyDown must reach React and persisted draft"
+        },
+        {
+          "name": "panel-over-foreign-fullscreen-2",
+          "pass": false,
+          "detail": "target=2 selected=2 actual=2 panelFocused=false panelActiveSpace=true fullscreenStillOnScreen=true frontPID=44013 ownPID=44013 fixturePID=44221 behavior=262401 level=3 style=143 panelIndex=32 foreignIndex=35 occlusion=8194"
+        }
+      ],
+      "scope": "此前隔离原生整套验收；本轮补充并发/回执修复后按用户选择待手动验证。"
+    },
+    "previous_native": {
+      "total": 68,
+      "failed": 1,
+      "failures": [
+        {
+          "name": "panel-over-foreign-fullscreen-2",
+          "pass": false,
+          "detail": "target=2 selected=2 actual=2 panelFocused=false panelActiveSpace=true fullscreenStillOnScreen=true frontPID=38659 ownPID=38659 fixturePID=38766 behavior=262401 level=3 style=143 panelIndex=32 foreignIndex=35 occlusion=8194"
+        }
+      ]
+    },
+    "main_comparison": {
+      "revision": "e7a86e30b4270c31d2eee2117c6e104c748e4711",
+      "modified": false,
+      "build_pass": true,
+      "native_timeout_seconds": 90,
+      "report_generated": false,
+      "conclusion": "对照超时，不能据此将焦点问题归类为既有或新增。"
+    },
+    "local_instance": {
+      "restarted": true,
+      "startup_verified": true,
+      "code_signature_verified": true,
+      "source_revision": "dd622fc43d888ec0fae61e082f18a90d54865b5f",
+      "private_conversation_content_recorded": false
+    }
+  },
+  "limits": [
+    "真实卡顿现场未做进程采样；当前修复已通过同规模合成数据与受控慢持久化回归。",
+    "原生鼠标/焦点/按键验收仍不稳定；不能宣称完整桌面验收通过。",
+    "未调用真实模型；本地实例已按用户要求正常退出并更新。"
+  ],
+  "runs": [
+    {
+      "name": "full-test",
+      "command": [
+        "sh",
+        "scripts/test.sh"
+      ],
+      "exit_code": 0,
+      "seconds": 19.14,
+      "log": "/Users/bytedance/self-workspace/pi-popchat/work/latency-diagnosis/full-test.log"
+    },
+    {
+      "name": "build-app",
+      "command": [
+        "sh",
+        "scripts/build-app.sh"
+      ],
+      "exit_code": 0,
+      "seconds": 7.481,
+      "log": "/Users/bytedance/self-workspace/pi-popchat/work/latency-diagnosis/build-app.log"
+    },
+    {
+      "name": "native-final",
+      "command": [
+        "sh",
+        "scripts/check-native-desktop.sh"
+      ],
+      "exit_code": 1,
+      "seconds": 46.127,
+      "log": "/Users/bytedance/self-workspace/pi-popchat/work/latency-diagnosis/native-final.log"
+    }
+  ],
+  "handoff": {
+    "date": "2026-10-27",
+    "user_decision": "先交付，稍后手动验证",
+    "application": "dist/Pi Popchat.app",
+    "running_instance_restarted": true,
+    "native_acceptance": "未全部通过，保留现有失败项和原始结果；未继续自动验收",
+    "application_source_revision": "dd622fc43d888ec0fae61e082f18a90d54865b5f"
+  },
+  "review_regressions": [
+    "根级、引用块和列表中的多行裸文本公式解析",
+    "隐藏时立即后台保存原草稿",
+    "隐藏保存与另一会话发送并发",
+    "同会话发送期间新增后续草稿、隐藏并切换会话",
+    "响应丢失后同消息 ID 去重重试的实际草稿版本",
+    "core 正常/排队/去重原子回执与 Desktop 跨会话回执",
+    "划词重置超时后，已处理/未处理的旧隐藏事件均不重放"
+  ],
+  "independent_review": {
+    "standards": "通过，最终无阻塞项",
+    "spec": "通过，最终无阻塞项",
+    "resolved": [
+      "合法多行公式解析崩溃",
+      "隐藏后原会话草稿保存及跨会话发送竞态",
+      "去重成功回执不能推断草稿清空或版本加一",
+      "旧隐藏时间重放导致划词新会话误超时"
+    ]
+  },
+  "pr_verification": {
+    "frontend_checks": 82,
+    "node_tests": 4,
+    "vitest_tests": 78,
+    "default_script": "sh scripts/test.sh",
+    "pass": true,
+    "go_race": true,
+    "submission_receipt_regressions": true,
+    "build_script": "sh scripts/build-app.sh",
+    "build_pass": true
+  }
+}

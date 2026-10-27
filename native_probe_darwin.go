@@ -131,6 +131,7 @@ func runDesktopProbe(d *Desktop) int {
 	root := d.engine.Root()
 	_, err := d.engine.NewSession("main", "")
 	record("isolated-session", err == nil, root)
+	probePanelResponsiveness(d, record)
 	screens := nativeScreens()
 	record("multiple-native-screens", len(screens) >= 2, fmt.Sprintf("count=%d", len(screens)))
 	// The foreground window deliberately stays on another display. Exercise
@@ -313,9 +314,14 @@ func runDesktopProbe(d *Desktop) int {
 		record("same-screen-toggle-hides", wait(func() bool { return !d.panel.IsVisible() }), "")
 	}
 	d.showPanel()
+	panelReady := wait(func() bool {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		return !d.panelPending && d.panelWanted
+	})
 	sid := d.engine.CurrentID("panel")
 	_, err = d.Action("panel", "transfer", nil)
-	record("transfer-same-session", err == nil && wait(func() bool { return d.main.IsVisible() && !d.panel.IsVisible() }) && d.engine.CurrentID("main") == sid, "")
+	record("transfer-same-session", panelReady && err == nil && wait(func() bool { return d.main.IsVisible() && !d.panel.IsVisible() }) && d.engine.CurrentID("main") == sid, "")
 	d.showPanel()
 	d.panel.Close()
 	record("panel-close-hides", wait(func() bool { return !d.panel.IsVisible() }), "")

@@ -13,5 +13,6 @@ export type {
     SelectionSettings,
     Session,
     Settings,
-    Snapshot
+    Snapshot,
+    SubmissionReceipt
 } from "./models.js";

@@ -9,6 +9,7 @@ import {
 import { api, view } from "./api";
 import type { Attachment, Snapshot } from "./types";
 import { newer, isBusy, shouldSend, fileTarget } from "./state";
+import { snapshotRefresh } from "./snapshotRefresh";
 import "./style.css";
 import { InteractionCard } from "./components/AgentContent";
 import { HistorySidebar } from "./components/HistorySidebar";
@@ -36,8 +37,11 @@ export function App() {
     [drag, setDrag] = useState(false),
     [conflict, setConflict] = useState(false),
     [commandsDismissed, setCommandsDismissed] = useState(false),
+    [panelPending, setPanelPending] = useState(view === "panel"),
     [commandIndex, setCommandIndex] = useState(0);
   const stateRef = useRef(snapshot),
+    refreshRef = useRef<() => void>(() => {}),
+    panelState = useRef({ revision: 0, pending: view === "panel" }),
     draft = useRef(""),
     attachmentRef = useRef<Attachment[]>([]),
     persistLock = useRef<Promise<boolean> | null>(null),
@@ -50,7 +54,8 @@ export function App() {
     bottom = useRef<HTMLDivElement>(null),
     followOutput = useRef(true),
     fileInput = useRef<HTMLInputElement>(null),
-    sendLock = useRef(false),
+    sendLock = useRef(""),
+    sendDone = useRef<Promise<void> | null>(null),
     pendingSends = useRef(
       new Map<
         string,
@@ -73,42 +78,55 @@ export function App() {
         }
       >(),
     );
-  const apply = useCallback((s: Snapshot) => {
-    const accepted = newer(stateRef.current, s);
-    if (accepted !== s) return;
-    stateRef.current = s;
-    setSnapshot(s);
-    const c = s.current;
-    if (c?.id !== sessionId.current) {
-      sessionId.current = c?.id || "";
-      followOutput.current = true;
-      const local = c && localDrafts.current.get(c.id);
-      draft.current = local?.text ?? c?.draft ?? "";
-      base.current = local?.base ?? c?.draft ?? "";
-      draftRevision.current = local?.revision ?? c?.draftRevision ?? 0;
-      dirty.current = !!local;
-      setText(draft.current);
-      attachmentRef.current = local?.attachments ?? c?.draftAttachments ?? [];
-      setAttachments(attachmentRef.current);
-      setConflict(false);
-      setTimeout(() => input.current?.focus(), 0);
-    } else if (c && !dirty.current) {
-      draft.current = c.draft || "";
-      base.current = draft.current;
-      draftRevision.current = c.draftRevision ?? 0;
-      setText(draft.current);
-      attachmentRef.current = c.draftAttachments ?? [];
-      setAttachments(attachmentRef.current);
+  const observePanel = useCallback((revision: number, pending: boolean) => {
+    if (view !== "panel") return;
+    const previous = panelState.current;
+    if (
+      revision < previous.revision ||
+      (revision === previous.revision && !previous.pending)
+    ) {
+      document.documentElement.dataset.popchatPanelPending = String(
+        previous.pending,
+      );
+      return;
     }
+    panelState.current = { revision, pending };
+    document.documentElement.dataset.popchatPanelPending = String(pending);
+    setPanelPending(pending);
   }, []);
-  const refresh = useCallback(
-    () =>
-      api
-        .snapshot()
-        .then(apply)
-        .catch((e) => setError(String(e))),
-    [apply],
+  const apply = useCallback(
+    (s: Snapshot) => {
+      const accepted = newer(stateRef.current, s);
+      if (accepted !== s) return;
+      observePanel(s.panelRevision ?? 0, s.panelPending === true);
+      stateRef.current = s;
+      setSnapshot(s);
+      const c = s.current;
+      if (c?.id !== sessionId.current) {
+        sessionId.current = c?.id || "";
+        followOutput.current = true;
+        const local = c && localDrafts.current.get(c.id);
+        draft.current = local?.text ?? c?.draft ?? "";
+        base.current = local?.base ?? c?.draft ?? "";
+        draftRevision.current = local?.revision ?? c?.draftRevision ?? 0;
+        dirty.current = !!local;
+        setText(draft.current);
+        attachmentRef.current = local?.attachments ?? c?.draftAttachments ?? [];
+        setAttachments(attachmentRef.current);
+        setConflict(false);
+        setTimeout(() => input.current?.focus(), 0);
+      } else if (c && !dirty.current) {
+        draft.current = c.draft || "";
+        base.current = draft.current;
+        draftRevision.current = c.draftRevision ?? 0;
+        setText(draft.current);
+        attachmentRef.current = c.draftAttachments ?? [];
+        setAttachments(attachmentRef.current);
+      }
+    },
+    [observePanel],
   );
+  const refresh = useCallback(() => refreshRef.current(), []);
   const act = useCallback(
     async (action: string, payload: Record<string, unknown> = {}) => {
       try {
@@ -139,20 +157,45 @@ export function App() {
     },
     [apply],
   );
-  const run = (action: string, payload: Record<string, unknown> = {}) => {
-    void act(action, payload).catch(() => {});
-  };
+  const run = useCallback(
+    (action: string, payload: Record<string, unknown> = {}) => {
+      void act(action, payload).catch(() => {});
+    },
+    [act],
+  );
   useEffect(() => {
-    void refresh();
-    const off = api.subscribe(() => void refresh());
-    const focus = () => void refresh();
+    const updates = snapshotRefresh(
+      api.snapshot,
+      (s) => {
+        apply(s);
+        if (view === "panel" && s.panelPending) updates.request();
+      },
+      (e) => setError(String(e)),
+    );
+    refreshRef.current = updates.request;
+    const off = api.subscribe(updates.request);
+    const focus = updates.request;
+    const opening = (event: Event) => {
+      const { revision, pending } = (
+        event as CustomEvent<{ revision: number; pending: boolean }>
+      ).detail;
+      observePanel(revision, pending);
+      updates.request();
+    };
     window.addEventListener("focus", focus);
+    window.addEventListener("popchat:panel-opening", opening);
+    updates.request();
     return () => {
       off();
+      updates.dispose();
       if (draftTimer.current) clearTimeout(draftTimer.current);
       window.removeEventListener("focus", focus);
+      window.removeEventListener("popchat:panel-opening", opening);
     };
-  }, [refresh]);
+  }, [apply, observePanel]);
+  useEffect(() => {
+    if (view === "panel" && !panelPending) input.current?.focus();
+  }, [panelPending]);
   const current = snapshot?.current,
     busy = isBusy(current?.status || "");
   useEffect(() => {
@@ -163,36 +206,55 @@ export function App() {
     current?.queue?.length,
     current?.interaction?.id,
   ]);
-  const persist = async (): Promise<boolean> => {
+  const persist = async (id = sessionId.current): Promise<boolean> => {
     if (persistLock.current) {
       await persistLock.current;
-      return persist();
+      return persist(id);
     }
-    if (!dirty.current || !sessionId.current || sendLock.current) return true;
-    const id = sessionId.current,
-      value = draft.current,
-      expected = base.current,
-      files = attachmentRef.current;
+    if (!id) return true;
+    if (sendLock.current === id && sendDone.current) {
+      await sendDone.current;
+      return persist(id);
+    }
+    const local =
+      id === sessionId.current && dirty.current
+        ? {
+            text: draft.current,
+            base: base.current,
+            revision: draftRevision.current,
+            attachments: attachmentRef.current,
+          }
+        : localDrafts.current.get(id);
+    if (!local) return true;
+    const value = local.text,
+      expected = local.base,
+      files = local.attachments;
     const operation = (async () => {
       try {
         const s = await api.action("draft", {
           text: value,
           expectedDraft: expected,
-          expectedDraftRevision: draftRevision.current,
+          expectedDraftRevision: local.revision,
           id,
           attachments: files,
         });
+        const revision =
+          s.current?.id === id
+            ? (s.current.draftRevision ?? local.revision + 1)
+            : local.revision + 1;
+        const latest = localDrafts.current.get(id);
+        if (latest?.text === value && latest.attachments === files) {
+          localDrafts.current.delete(id);
+        } else if (latest) {
+          // An edit or view switch may have happened during the write. Keep
+          // its text, but advance that session's compare-and-swap baseline.
+          localDrafts.current.set(id, { ...latest, base: value, revision });
+        }
         if (sessionId.current === id) {
           base.current = value;
-          draftRevision.current =
-            s.current?.id === id
-              ? (s.current.draftRevision ?? draftRevision.current + 1)
-              : draftRevision.current + 1;
-          if (draft.current === value && attachmentRef.current === files) {
-            dirty.current = false;
-            setConflict(false);
-            localDrafts.current.delete(id);
-          }
+          draftRevision.current = revision;
+          dirty.current = localDrafts.current.has(id);
+          if (!dirty.current) setConflict(false);
         }
         apply(s);
         return true;
@@ -209,43 +271,53 @@ export function App() {
     }
   };
   const updateAttachments = (next: Attachment[]) => {
+    const id = sessionId.current;
     attachmentRef.current = next;
     setAttachments(next);
     dirty.current = true;
-    localDrafts.current.set(sessionId.current, {
+    localDrafts.current.set(id, {
       text: draft.current,
       base: base.current,
       revision: draftRevision.current,
       attachments: next,
     });
     if (draftTimer.current) clearTimeout(draftTimer.current);
-    draftTimer.current = setTimeout(() => void persist(), 650);
+    draftTimer.current = setTimeout(() => void persist(id), 650);
   };
   const changeText = (value: string) => {
+    const id = sessionId.current;
     draft.current = value;
     setCommandsDismissed(false);
     setCommandIndex(0);
     dirty.current = true;
     setText(value);
-    localDrafts.current.set(sessionId.current, {
+    localDrafts.current.set(id, {
       text: value,
       base: base.current,
       revision: draftRevision.current,
       attachments: attachmentRef.current,
     });
     if (draftTimer.current) clearTimeout(draftTimer.current);
-    draftTimer.current = setTimeout(() => void persist(), 650);
+    draftTimer.current = setTimeout(() => void persist(id), 650);
   };
   const navigate = async (
     action: string,
     payload: Record<string, unknown> = {},
   ) => {
+    if (action === "hide") {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+      void persist(sessionId.current);
+      run(action, payload);
+      return;
+    }
+    if (panelState.current.pending) return;
     if (draftTimer.current) clearTimeout(draftTimer.current);
     await persist();
     run(action, payload);
   };
   const send = async () => {
     if (
+      panelState.current.pending ||
       sendLock.current ||
       uploading ||
       (!draft.current.trim() && !attachments.length) ||
@@ -256,7 +328,11 @@ export function App() {
     const sendingRevision = draftRevision.current;
     const sendingBase = base.current;
     followOutput.current = true;
-    sendLock.current = true;
+    sendLock.current = sendingSession;
+    let finishSend!: () => void;
+    sendDone.current = new Promise<void>((resolve) => {
+      finishSend = resolve;
+    });
     setSending(true);
     if (draftTimer.current) clearTimeout(draftTimer.current);
     const content = draft.current;
@@ -284,32 +360,38 @@ export function App() {
         });
       }
       if (stillSelected) dirty.current = true;
+      const expectedRevision = stillSelected
+        ? draftRevision.current
+        : (localDrafts.current.get(sendingSession)?.revision ??
+          sendingRevision);
       const result = await act("send", {
         text: transaction.text,
         attachments: transaction.attachments,
         clientMessageId: transaction.id,
-        expectedDraftRevision:
-          sessionId.current === sendingSession
-            ? draftRevision.current
-            : sendingRevision,
+        expectedDraftRevision: expectedRevision,
         id: sendingSession,
       });
-      if (sessionId.current === sendingSession) {
-        base.current = result.current?.draft ?? "";
-        draftRevision.current =
-          result.current?.draftRevision ?? draftRevision.current + 1;
+      const receipt = result.submission;
+      if (!receipt || receipt.sessionId !== sendingSession)
+        throw new Error("发送回执缺少原会话状态，请核对后重试");
+      const savedDraft = receipt.draft;
+      const savedRevision = receipt.draftRevision;
+      if (sessionId.current === sendingSession && !receipt.duplicate) {
+        base.current = savedDraft;
+        draftRevision.current = savedRevision;
       }
       if (
         sessionId.current === sendingSession &&
         draft.current === content &&
         attachmentRef.current === files
       ) {
-        draft.current = "";
-        base.current = "";
+        draft.current = savedDraft;
+        base.current = savedDraft;
+        draftRevision.current = savedRevision;
         dirty.current = false;
-        setText("");
-        attachmentRef.current = [];
-        setAttachments([]);
+        setText(savedDraft);
+        attachmentRef.current = receipt.draftAttachments;
+        setAttachments(receipt.draftAttachments);
         localDrafts.current.delete(current.id);
         setConflict(false);
       }
@@ -320,24 +402,37 @@ export function App() {
           JSON.stringify(transaction.attachments)
       ) {
         localDrafts.current.delete(sendingSession);
+      } else if (local && !receipt.duplicate) {
+        localDrafts.current.set(sendingSession, {
+          ...local,
+          base: savedDraft,
+          revision: savedRevision,
+        });
       }
       if (pendingSends.current.get(sendingSession) === transaction) {
         pendingSends.current.delete(sendingSession);
       }
     } catch (error) {
+      setError(String(error));
       if (String(error).includes("另一窗口已更新或发送草稿")) {
         if (sessionId.current === sendingSession) setConflict(true);
         void refresh();
       }
     } finally {
-      sendLock.current = false;
+      sendLock.current = "";
+      sendDone.current = null;
+      finishSend();
       setSending(false);
-      if (dirty.current)
-        draftTimer.current = setTimeout(() => void persist(), 650);
+      if (localDrafts.current.has(sendingSession))
+        draftTimer.current = setTimeout(
+          () => void persist(sendingSession),
+          650,
+        );
       input.current?.focus();
     }
   };
   const addFiles = async (files: File[]) => {
+    if (panelState.current.pending) return;
     const uploadSession = sessionId.current;
     const origin = {
       text: draft.current,
@@ -468,14 +563,17 @@ export function App() {
           c.name.toLowerCase().includes(text.slice(1).toLowerCase()),
         )
       : [];
-  const openLink = (href: string, reveal = false) => {
-    const target = fileTarget(href, current?.cwd || "");
-    if (target)
-      run(
-        reveal && target.action === "openFile" ? "revealFile" : target.action,
-        target.payload,
-      );
-  };
+  const openLink = useCallback(
+    (href: string, reveal = false) => {
+      const target = fileTarget(href, current?.cwd || "");
+      if (target)
+        run(
+          reveal && target.action === "openFile" ? "revealFile" : target.action,
+          target.payload,
+        );
+    },
+    [current?.cwd, run],
+  );
   const sessions = (snapshot?.sessions || [])
     .filter((s) =>
       (s.title + " " + (s.searchableText || ""))
@@ -541,12 +639,14 @@ export function App() {
                 <button
                   title="新对话"
                   aria-label="新对话"
+                  disabled={panelPending}
                   onClick={() => void navigate("new")}
                 >
                   ＋
                 </button>
                 <button
                   title="在主窗口中打开"
+                  disabled={panelPending}
                   onClick={() => void navigate("transfer")}
                 >
                   ↗ 主窗口
@@ -653,6 +753,11 @@ export function App() {
               <button onClick={() => run("refreshAgent")}>重新检测</button>
             </div>
           )}
+        {panelPending && (
+          <div className="notice" role="status">
+            正在恢复会话…
+          </div>
+        )}
         <div
           className="messages"
           onScroll={(e) => {
@@ -661,7 +766,8 @@ export function App() {
               el.scrollHeight - el.scrollTop - el.clientHeight < 90;
           }}
           aria-live="polite"
-          aria-busy={busy}
+          aria-busy={busy || panelPending}
+          inert={panelPending}
         >
           {!current?.messages?.length && (
             <div className="welcome">
@@ -848,6 +954,7 @@ export function App() {
             )}
             <textarea
               ref={input}
+              disabled={panelPending || !current}
               aria-label="消息"
               placeholder={
                 busy ? "补充消息，将在当前任务后发送…" : "输入消息，或拖入文件…"
@@ -874,7 +981,7 @@ export function App() {
                 <button
                   aria-label="添加附件"
                   title="添加图片或文件"
-                  disabled={uploading}
+                  disabled={uploading || panelPending}
                   onClick={() => fileInput.current?.click()}
                 >
                   ＋
@@ -900,7 +1007,7 @@ export function App() {
                       "/" +
                       current.model
                     }
-                    disabled={busy}
+                    disabled={busy || panelPending}
                     onChange={(e) => {
                       const m = current.models.find(
                         (m) => m.provider + "/" + m.id === e.target.value,
@@ -922,6 +1029,7 @@ export function App() {
               <button
                 className="send"
                 disabled={
+                  panelPending ||
                   sending ||
                   uploading ||
                   (!text.trim() && !attachments.length) ||

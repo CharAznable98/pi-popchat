@@ -9,6 +9,73 @@ import {
 } from "@testing-library/react";
 import { MessageView } from "./MessageView";
 afterEach(cleanup);
+it.each([
+  [String.raw`参数 \(\theta_i\) 与损失 \(L(\theta)\)。`, 2, 0],
+  [String.raw`参数 $\theta_i$。`, 1, 0],
+  [
+    String.raw`常规训练：\[\theta \leftarrow \theta-\eta\nabla L(\theta)\]`,
+    1,
+    1,
+  ],
+  ["$$\n\\frac{a+b}{2\\epsilon}\n$$", 1, 1],
+  ["\\[\n\\frac{x}{y}\n\\]", 1, 1],
+  ["> $$\n> x^2\n> $$", 1, 1],
+  [String.raw`$$\begin{pmatrix}a&b\\c&d\end{pmatrix}$$`, 1, 1],
+  [String.raw`\[\begin{aligned}a&=b\\c&=d\end{aligned}\]`, 1, 1],
+])("renders delimited math: %s", (text, count, displayCount) => {
+  const { container } = render(
+    <MessageView {...defaults} message={message(text)} />,
+  );
+  expect(container.querySelectorAll(".katex")).toHaveLength(count);
+  expect(container.querySelectorAll(".katex-display")).toHaveLength(
+    displayCount,
+  );
+});
+it.each([
+  String.raw`\(\theta`,
+  String.raw`\[\frac{x}{y}`,
+  "$\\theta",
+  "$$\n\\theta",
+  String.raw`\(\unknowncommand{x}\)`,
+  String.raw`$\frac{x}$`,
+])("preserves unfinished or invalid formula source: %s", (text) => {
+  const { container } = render(
+    <MessageView {...defaults} message={message(text)} />,
+  );
+  expect(container.querySelector(".katex")).toBeNull();
+  expect(container.textContent).toContain(text);
+});
+it("keeps code, including a math-labelled fence, unchanged", () => {
+  const code = String.raw`\(\theta\) $x$ \[y\] $$z$$`;
+  const text = "`" + code + "`\n\n```math\n" + code + "\n```\n\n    " + code;
+  const { container } = render(
+    <MessageView {...defaults} message={message(text)} />,
+  );
+  expect(container.querySelector(".katex")).toBeNull();
+  expect(
+    Array.from(container.querySelectorAll("code"), (n) =>
+      n.textContent?.trim(),
+    ),
+  ).toEqual([code, code, code]);
+});
+it("finishes a streamed formula without changing saved source or enabling commands", () => {
+  const partial = message(String.raw`\(\theta`);
+  const { container, rerender } = render(
+    <MessageView {...defaults} message={partial} />,
+  );
+  expect(container.textContent).toContain(partial.text);
+  const complete = message(String.raw`\(\theta_i\)`);
+  rerender(<MessageView {...defaults} message={complete} />);
+  expect(container.querySelector(".katex")).toBeTruthy();
+  expect(complete.text).toBe(String.raw`\(\theta_i\)`);
+  rerender(
+    <MessageView
+      {...defaults}
+      message={message(String.raw`$\href{javascript:alert(1)}{x}$`)}
+    />,
+  );
+  expect(container.querySelector('[href^="javascript:"]')).toBeNull();
+});
 const imageData = "data:image/png;base64,iVBORw0KGgo=";
 const message = (text: string) => ({
   id: "m",

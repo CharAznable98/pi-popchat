@@ -51,6 +51,7 @@ func main() {
 		detachNotifications()
 		stopSelection()
 		if d.engine != nil {
+			d.flushPanelHidden()
 			_ = d.engine.Close()
 		}
 		if probeMode && root != "" {

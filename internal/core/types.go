@@ -91,6 +91,8 @@ type Environment struct {
 	Error     string `json:"error"`
 }
 type Snapshot struct {
+	PanelRevision       uint64      `json:"panelRevision"`
+	PanelPending        bool        `json:"panelPending"`
 	SelectionPermission bool        `json:"selectionPermission"`
 	Version             uint64      `json:"version"`
 	CurrentID           string      `json:"currentId"`

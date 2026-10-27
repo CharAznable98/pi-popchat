@@ -110,6 +110,8 @@ export interface Settings {
 }
 
 export interface Snapshot {
+    "panelRevision": number;
+    "panelPending": boolean;
     "selectionPermission": boolean;
     "version": number;
     "currentId": string;

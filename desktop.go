@@ -22,6 +22,10 @@ type Desktop struct {
 	mainWanted, panelWanted  bool
 	panelActivationPending   bool
 	panelActivationScreen    *application.Screen
+	panelRevision            uint64
+	panelPending             bool
+	panelHiddenAt            time.Time
+	panelWorkMu              sync.Mutex
 	done                     chan struct{}
 	app                      *application.App
 	main, panel              *application.WebviewWindow
@@ -39,9 +43,15 @@ func (d *Desktop) setError(s string) {
 	d.app.Event.Emit("popchat:changed")
 }
 func (d *Desktop) Snapshot(view string) core.Snapshot {
+	d.mu.Lock()
+	revision := d.panelRevision
+	pending := d.panelPending
+	d.mu.Unlock()
 	s := d.engine.Snapshot(view)
 	s.SelectionPermission = selectionPermission(false)
 	d.mu.Lock()
+	s.PanelRevision = d.panelRevision
+	s.PanelPending = pending || d.panelPending || revision != d.panelRevision
 	if d.errorText != "" {
 		s.Error = d.errorText
 	}
@@ -66,7 +76,21 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 	if p == nil {
 		p = map[string]any{}
 	}
+	if action == "hide" {
+		if view == "panel" {
+			d.hidePanel()
+		} else {
+			d.hideMain()
+		}
+		return d.Snapshot(view), nil
+	}
 	str := func(k string) string { s, _ := p[k].(string); return s }
+	d.mu.Lock()
+	pending := view == "panel" && d.panelPending
+	d.mu.Unlock()
+	if pending && (action == "send" || action == "new" || action == "select" || action == "transfer" || action == "respond") {
+		return core.Snapshot{}, errors.New("浮层会话正在恢复，请稍后重试")
+	}
 	sid := d.engine.CurrentID(view)
 	if str("sessionId") != "" {
 		sid = str("sessionId")
@@ -199,12 +223,6 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 			d.hidePanel()
 			d.showMain()
 		}
-	case "hide":
-		if view == "panel" {
-			d.hidePanel()
-		} else {
-			d.hideMain()
-		}
 	case "showMain":
 		d.showMain()
 	case "quit":
@@ -216,31 +234,44 @@ func (d *Desktop) Action(view, action string, p map[string]any) (core.Snapshot, 
 }
 func (d *Desktop) hidePanel() {
 	application.InvokeSync(func() {
+		visible := d.panel.IsVisible()
 		d.mu.Lock()
 		wasWanted := d.panelWanted
 		d.panelWanted = false
 		d.panelActivationPending = false
 		d.panelActivationScreen = nil
-		d.mu.Unlock()
-		if wasWanted || d.panel.IsVisible() {
-			d.engine.PanelHidden()
+		if wasWanted || visible {
+			d.panelRevision++
+			d.panelPending = false
+			d.panelHiddenAt = time.Now()
 		}
+		revision, hiddenAt := d.panelRevision, d.panelHiddenAt
+		d.mu.Unlock()
 		d.panel.Hide()
+		if wasWanted || visible {
+			go d.resolvePanel(revision, hiddenAt, false)
+		}
 	})
 }
 func (d *Desktop) showPanel() {
 	d.showPanelOn(activeWindowScreen())
 }
 func (d *Desktop) showPanelOn(screen *application.Screen) {
-	if err := d.engine.PanelShown(); err != nil {
-		d.setError(err.Error())
-		return
-	}
-	d.presentPanel(screen)
+	revision, hiddenAt := d.presentPanelWithPending(screen, true)
+	go d.resolvePanel(revision, hiddenAt, true)
 }
 func (d *Desktop) presentPanel(screen *application.Screen) {
+	d.presentPanelWithPending(screen, false)
+}
+
+// Native presentation never waits for Engine, persistence, or Agent startup.
+// A revision prevents an earlier open/hide from completing a later invocation.
+func (d *Desktop) presentPanelWithPending(screen *application.Screen, pending bool) (revision uint64, hiddenAt time.Time) {
 	application.InvokeSync(func() {
 		d.mu.Lock()
+		d.panelRevision++
+		d.panelPending = pending
+		revision, hiddenAt = d.panelRevision, d.panelHiddenAt
 		d.panelWanted = true
 		d.panelActivationPending = !nativeApplicationIsActive()
 		d.panelActivationScreen = screen
@@ -248,14 +279,72 @@ func (d *Desktop) presentPanel(screen *application.Screen) {
 		if screen != nil {
 			d.panel.SetScreen(screen)
 		}
+		// Even a selection whose backend session is ready needs one fresh view
+		// before the previously displayed conversation may accept input.
+		d.panel.ExecJS(fmt.Sprintf("document.documentElement.dataset.popchatPanelPending='true';window.dispatchEvent(new CustomEvent('popchat:panel-opening',{detail:{revision:%d,pending:true}}))", revision))
 		d.panel.Show()
 		nativeActivateForPanel()
 		d.panel.Focus()
 		d.panel.ExecJS("document.querySelector('textarea')?.focus()")
 	})
-	sid := d.engine.CurrentID("panel")
-	go d.engine.Prepare(sid)
+	return
 }
+
+func (d *Desktop) resolvePanel(revision uint64, hiddenAt time.Time, show bool) {
+	d.panelWorkMu.Lock()
+	defer d.panelWorkMu.Unlock()
+	d.mu.Lock()
+	current := d.panelRevision == revision
+	d.mu.Unlock()
+	select {
+	case <-d.done:
+		return
+	default:
+	}
+	if !current {
+		return
+	}
+	if !hiddenAt.IsZero() {
+		d.engine.PanelHiddenAt(hiddenAt)
+	}
+	if !show {
+		return
+	}
+	err := d.engine.PanelShown()
+	d.mu.Lock()
+	current = d.panelRevision == revision
+	if current {
+		d.panelPending = false
+	}
+	d.mu.Unlock()
+	select {
+	case <-d.done:
+		return
+	default:
+	}
+	if !current {
+		return
+	}
+	if err != nil {
+		d.setError(err.Error())
+	} else {
+		d.app.Event.Emit("popchat:changed")
+		sid := d.engine.CurrentID("panel")
+		go d.engine.Prepare(sid)
+	}
+}
+
+// Shutdown joins any older native lifecycle operation before saving the last
+// actual hide time. Otherwise quitting immediately after hiding could lose it.
+func (d *Desktop) flushPanelHidden() {
+	d.panelWorkMu.Lock()
+	defer d.panelWorkMu.Unlock()
+	d.mu.Lock()
+	hiddenAt := d.panelHiddenAt
+	d.mu.Unlock()
+	d.engine.PanelHiddenAt(hiddenAt)
+}
+
 func (d *Desktop) showMain() {
 	application.InvokeSync(func() {
 		d.mu.Lock()

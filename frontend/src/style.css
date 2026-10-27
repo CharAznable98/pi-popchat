@@ -1028,3 +1028,18 @@ p {
 .panel .image-preview img { max-height: 280px; }
 .image-fallback { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border: 1px solid #dde1d4; border-radius: 10px; }
 .attachment.sent img { max-width: 200px; max-height: 140px; width: auto; height: auto; object-fit: contain; }
+
+.math-formula.display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+.math-formula .katex {
+  font-size: 1.1em;
+}
+.math-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

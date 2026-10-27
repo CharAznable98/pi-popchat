@@ -55,6 +55,8 @@ export type SelectionConfig = {
   buttons: { id: string; name: string; template: string }[];
 };
 export type Snapshot = {
+  panelRevision?: number;
+  panelPending?: boolean;
   selectionPermission?: boolean;
   version: number;
   currentId: string;
